@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
+import { api } from '../../api';
 import { validatePassword } from '../../utils/validators';
 import { AuthShell, Field, ErrorBox, BTN_PRIMARY, INPUT } from './Login';
 
@@ -26,7 +27,6 @@ export default function Signup() {
     setError('');
     setLoading(true);
     try {
-      const { api } = await import('../../api');
       await api.post('/auth/signup', form);
       // Auto-login after signup
       await login(form.email, form.password);
@@ -83,4 +83,3 @@ export default function Signup() {
     </AuthShell>
   );
 }
-

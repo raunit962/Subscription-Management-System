@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './auth/AuthContext';
+import { AuthProvider, useAuth } from './auth/AuthContext';
 import ProtectedRoute from './auth/ProtectedRoute';
 
 // Auth pages
@@ -14,9 +14,7 @@ import Customers from './pages/admin/Customers';
 import Products  from './pages/admin/Products';
 import Plans     from './pages/admin/Plans';
 import Taxes     from './pages/admin/Taxes';
-// PaymentTerms page — CUT (seed data is enough; API routes exist for Stage 2)
 
-// S2/S3 imports will be appended below this comment
 // Stage 2 pages
 import Templates          from './pages/sales/Templates';
 import Subscriptions      from './pages/sales/Subscriptions';
@@ -26,6 +24,14 @@ import Invoices           from './pages/billing/Invoices';
 import InvoiceDetail      from './pages/billing/InvoiceDetail';
 import InvoicePrint       from './pages/billing/InvoicePrint';
 import RunBilling         from './pages/billing/RunBilling';
+import MySubscriptions    from './pages/portal/MySubscriptions';
+
+function RootRedirect() {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'PORTAL') return <Navigate to="/portal/subscriptions" replace />;
+  return <Navigate to="/sales/subscriptions" replace />;
+}
 
 export default function App() {
   return (
@@ -51,9 +57,7 @@ export default function App() {
             element={<ProtectedRoute roles={['ADMIN', 'INTERNAL']}><Plans /></ProtectedRoute>} />
           <Route path="/admin/taxes"
             element={<ProtectedRoute roles={['ADMIN', 'INTERNAL']}><Taxes /></ProtectedRoute>} />
-          {/* /admin/payment-terms — CUT from UI; API at /api/payment-terms is live */}
 
-          {/* S2/S3 routes will be appended below this comment */}
           {/* Stage 2: Sales & Billing routes (ADMIN + INTERNAL) */}
           <Route path="/sales/templates"
             element={<ProtectedRoute roles={['ADMIN', 'INTERNAL']}><Templates /></ProtectedRoute>} />
@@ -72,6 +76,10 @@ export default function App() {
           <Route path="/billing/run"
             element={<ProtectedRoute roles={['ADMIN', 'INTERNAL']}><RunBilling /></ProtectedRoute>} />
 
+          {/* Portal routes */}
+          <Route path="/portal/subscriptions"
+            element={<ProtectedRoute roles={['PORTAL', 'ADMIN', 'INTERNAL']}><MySubscriptions /></ProtectedRoute>} />
+
           {/* Fallbacks */}
           <Route path="/unauthorized" element={
             <div className="flex h-screen items-center justify-center text-gray-500">
@@ -81,8 +89,8 @@ export default function App() {
               </div>
             </div>
           } />
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="/" element={<RootRedirect />} />
+          <Route path="*" element={<RootRedirect />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
