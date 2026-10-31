@@ -107,6 +107,7 @@ export default function App() {
               <div className="text-center">
                 <p className="text-4xl font-bold text-red-400">403</p>
                 <p className="mt-2">You don't have permission to view this page.</p>
+                <a href="/" className="inline-block mt-4 text-sm text-indigo-600 hover:underline">Go to your home page</a>
               </div>
             </div>
           } />

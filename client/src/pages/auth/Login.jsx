@@ -2,6 +2,19 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 
+// Where to send a user after login: back to the page they were sent away from,
+// but only if their role can open it (customers: /portal, staff: everything else).
+// Admin-only pages still go through ProtectedRoute for INTERNAL users.
+function landingPath(user, from) {
+  const home = user.role === 'PORTAL' ? '/portal/subscriptions' : '/sales/subscriptions';
+  if (!from || from === '/' || from === '/login') return home;
+  const isPortalPage = from.startsWith('/portal');
+  const isSharedPage = /^\/billing\/invoices\/\d+\/print$/.test(from);
+  if (isSharedPage) return from;
+  if (user.role === 'PORTAL') return isPortalPage ? from : home;
+  return isPortalPage ? home : from;
+}
+
 export default function Login() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
@@ -15,12 +28,7 @@ export default function Login() {
 
   useEffect(() => {
     if (user) {
-      if (user.role === 'PORTAL') {
-        navigate('/portal/subscriptions', { replace: true });
-      } else {
-        const dest = from !== '/' && from !== '/login' ? from : '/sales/subscriptions';
-        navigate(dest, { replace: true });
-      }
+      navigate(landingPath(user, from), { replace: true });
     }
   }, [user, navigate, from]);
 
@@ -30,12 +38,7 @@ export default function Login() {
     setLoading(true);
     try {
       const loggedUser = await login(email, password);
-      if (loggedUser.role === 'PORTAL') {
-        navigate('/portal/subscriptions', { replace: true });
-      } else {
-        const dest = from !== '/' && from !== '/login' ? from : '/sales/subscriptions';
-        navigate(dest, { replace: true });
-      }
+      navigate(landingPath(loggedUser, from), { replace: true });
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
@@ -50,12 +53,7 @@ export default function Login() {
     setLoading(true);
     login(demoEmail, demoPassword)
       .then((loggedUser) => {
-        if (loggedUser.role === 'PORTAL') {
-          navigate('/portal/subscriptions', { replace: true });
-        } else {
-          const dest = from !== '/' && from !== '/login' ? from : '/sales/subscriptions';
-          navigate(dest, { replace: true });
-        }
+        navigate(landingPath(loggedUser, from), { replace: true });
       })
       .catch((err) => {
         setError(err.message || 'Login failed. Please check credentials or start database server.');
