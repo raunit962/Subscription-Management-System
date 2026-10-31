@@ -46,23 +46,6 @@ export default function Login() {
     }
   }
 
-  function handleQuickLogin(demoEmail, demoPassword) {
-    setEmail(demoEmail);
-    setPassword(demoPassword);
-    setError('');
-    setLoading(true);
-    login(demoEmail, demoPassword)
-      .then((loggedUser) => {
-        navigate(landingPath(loggedUser, from), { replace: true });
-      })
-      .catch((err) => {
-        setError(err.message || 'Login failed. Please check credentials or start database server.');
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }
-
   return (
     <AuthShell title="Sign in to Brightloop">
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -74,7 +57,7 @@ export default function Login() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className={INPUT}
-            placeholder="admin@brightloop.com"
+            placeholder="you@company.com"
           />
         </Field>
         <Field label="Password">
@@ -93,36 +76,6 @@ export default function Login() {
         <button type="submit" disabled={loading} className={BTN_PRIMARY}>
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
-
-        {/* Quick Demo Logins for Hackathon Evaluators */}
-        <div className="pt-2 border-t border-gray-100">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-center mb-2">
-            ⚡ Quick Demo Logins
-          </p>
-          <div className="grid grid-cols-3 gap-1.5 text-xs">
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('admin@brightloop.com', 'Admin@123!')}
-              className="py-1.5 px-2 bg-purple-50 text-purple-700 hover:bg-purple-100 font-medium rounded text-center transition"
-            >
-              Admin
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('staff@brightloop.com', 'Staff@123!')}
-              className="py-1.5 px-2 bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium rounded text-center transition"
-            >
-              Staff
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('alice@example.com', 'Portal@123!')}
-              className="py-1.5 px-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-medium rounded text-center transition"
-            >
-              Customer
-            </button>
-          </div>
-        </div>
 
         <p className="text-sm text-center text-gray-500 pt-1">
           <Link to="/forgot-password" className="text-indigo-600 hover:underline">
