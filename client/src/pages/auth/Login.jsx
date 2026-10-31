@@ -2,6 +2,19 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 
+// Where to send a user after login: back to the page they were sent away from,
+// but only if their role can open it (customers: /portal, staff: everything else).
+// Admin-only pages still go through ProtectedRoute for INTERNAL users.
+function landingPath(user, from) {
+  const home = user.role === 'PORTAL' ? '/portal/subscriptions' : '/sales/subscriptions';
+  if (!from || from === '/' || from === '/login') return home;
+  const isPortalPage = from.startsWith('/portal');
+  const isSharedPage = /^\/billing\/invoices\/\d+\/print$/.test(from);
+  if (isSharedPage) return from;
+  if (user.role === 'PORTAL') return isPortalPage ? from : home;
+  return isPortalPage ? home : from;
+}
+
 export default function Login() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
@@ -15,12 +28,7 @@ export default function Login() {
 
   useEffect(() => {
     if (user) {
-      if (user.role === 'PORTAL') {
-        navigate('/portal/subscriptions', { replace: true });
-      } else {
-        const dest = from !== '/' && from !== '/login' ? from : '/sales/subscriptions';
-        navigate(dest, { replace: true });
-      }
+      navigate(landingPath(user, from), { replace: true });
     }
   }, [user, navigate, from]);
 
@@ -30,39 +38,12 @@ export default function Login() {
     setLoading(true);
     try {
       const loggedUser = await login(email, password);
-      if (loggedUser.role === 'PORTAL') {
-        navigate('/portal/subscriptions', { replace: true });
-      } else {
-        const dest = from !== '/' && from !== '/login' ? from : '/sales/subscriptions';
-        navigate(dest, { replace: true });
-      }
+      navigate(landingPath(loggedUser, from), { replace: true });
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
-  }
-
-  function handleQuickLogin(demoEmail, demoPassword) {
-    setEmail(demoEmail);
-    setPassword(demoPassword);
-    setError('');
-    setLoading(true);
-    login(demoEmail, demoPassword)
-      .then((loggedUser) => {
-        if (loggedUser.role === 'PORTAL') {
-          navigate('/portal/subscriptions', { replace: true });
-        } else {
-          const dest = from !== '/' && from !== '/login' ? from : '/sales/subscriptions';
-          navigate(dest, { replace: true });
-        }
-      })
-      .catch((err) => {
-        setError(err.message || 'Login failed. Please check credentials or start database server.');
-      })
-      .finally(() => {
-        setLoading(false);
-      });
   }
 
   return (
@@ -76,7 +57,7 @@ export default function Login() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className={INPUT}
-            placeholder="admin@brightloop.com"
+            placeholder="you@company.com"
           />
         </Field>
         <Field label="Password">
@@ -95,36 +76,6 @@ export default function Login() {
         <button type="submit" disabled={loading} className={BTN_PRIMARY}>
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
-
-        {/* Quick Demo Logins for Hackathon Evaluators */}
-        <div className="pt-2 border-t border-gray-100">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-center mb-2">
-            ⚡ Quick Demo Logins
-          </p>
-          <div className="grid grid-cols-3 gap-1.5 text-xs">
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('admin@brightloop.com', 'Admin@123!')}
-              className="py-1.5 px-2 bg-purple-50 text-purple-700 hover:bg-purple-100 font-medium rounded text-center transition"
-            >
-              Admin
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('staff@brightloop.com', 'Staff@123!')}
-              className="py-1.5 px-2 bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium rounded text-center transition"
-            >
-              Staff
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('alice@example.com', 'Portal@123!')}
-              className="py-1.5 px-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-medium rounded text-center transition"
-            >
-              Customer
-            </button>
-          </div>
-        </div>
 
         <p className="text-sm text-center text-gray-500 pt-1">
           <Link to="/forgot-password" className="text-indigo-600 hover:underline">
