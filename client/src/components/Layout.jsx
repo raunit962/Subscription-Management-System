@@ -2,13 +2,6 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 
 const ADMIN_NAV = [
-  { to: '/admin/users',         label: 'Users' },
-  { to: '/admin/customers',     label: 'Customers' },
-  { to: '/admin/products',      label: 'Products' },
-  { to: '/admin/plans',         label: 'Plans' },
-  { to: '/admin/taxes',         label: 'Taxes' },
-  // /admin/payment-terms — CUT from UI (seed data is enough; Stage 2 may add if needed)
-  // Stage 2/3 will append items below this comment
   { to: '/sales/subscriptions', label: 'Subscriptions' },
   { to: '/sales/templates',     label: 'Templates' },
   { to: '/sales/discounts',     label: 'Discounts' },
@@ -17,14 +10,15 @@ const ADMIN_NAV = [
   { to: '/finance/dashboard',   label: 'Dashboard' },
   { to: '/finance/overdue',     label: 'Overdue' },
   { to: '/finance/payments',    label: 'Payments' },
+  { to: '/admin/users',         label: 'Users' },
+  { to: '/admin/customers',     label: 'Customers' },
+  { to: '/admin/products',      label: 'Products' },
+  { to: '/admin/plans',         label: 'Plans' },
+  { to: '/admin/taxes',         label: 'Taxes' },
   { to: '/admin/payment-terms', label: 'Payment Terms' },
 ];
 
 const INTERNAL_NAV = [
-  { to: '/admin/customers',     label: 'Customers' },
-  { to: '/admin/products',      label: 'Products' },
-  { to: '/admin/plans',         label: 'Plans' },
-  // Stage 2/3 will append items below this comment
   { to: '/sales/subscriptions', label: 'Subscriptions' },
   { to: '/sales/templates',     label: 'Templates' },
   { to: '/billing/invoices',    label: 'Invoices' },
@@ -32,10 +26,12 @@ const INTERNAL_NAV = [
   { to: '/finance/dashboard',   label: 'Dashboard' },
   { to: '/finance/overdue',     label: 'Overdue' },
   { to: '/finance/payments',    label: 'Payments' },
+  { to: '/admin/customers',     label: 'Customers' },
+  { to: '/admin/products',      label: 'Products' },
+  { to: '/admin/plans',         label: 'Plans' },
 ];
 
 const PORTAL_NAV = [
-  // Stage 3 will append portal items
   { to: '/portal/subscriptions', label: 'My Subscriptions' },
   { to: '/portal/invoices',      label: 'My Invoices' },
   { to: '/portal/payments',      label: 'My Payments' },

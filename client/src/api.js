@@ -4,6 +4,7 @@ const API_BASE = '/api';
  * Core fetch wrapper.
  * - Attaches Authorization: Bearer <token> from localStorage
  * - Parses JSON response
+ * - Normalizes paths so both '/products' and '/api/products' resolve cleanly to '/api/products'
  * - Throws on non-2xx with the server's { error } message
  */
 export async function apiFetch(path, options = {}) {
@@ -15,9 +16,11 @@ export async function apiFetch(path, options = {}) {
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  // Stage 2 pages pass '/api/...' while Stage 1 pages pass '/...' — accept both
-  const url = path.startsWith(`${API_BASE}/`) ? path : `${API_BASE}${path}`;
-  const res = await fetch(url, { ...options, headers });
+  const cleanPath = path.startsWith('/api')
+    ? path
+    : `/api${path.startsWith('/') ? path : `/${path}`}`;
+
+  const res = await fetch(cleanPath, { ...options, headers });
 
   if (res.status === 204) return null;
 
