@@ -2,16 +2,20 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { formatDate, formatMoney } from '../../utils/format';
 import api from '../../api';
+import { useAuth } from '../../auth/AuthContext';
 
 export default function InvoicePrint() {
   const { id } = useParams();
+  const { role } = useAuth();
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const data = await api.get(`/api/invoices/${id}`);
+        // Portal users can only read their own invoices via the scoped portal endpoint
+        const path = role === 'PORTAL' ? `/portal/invoices/${id}` : `/invoices/${id}`;
+        const data = await api.get(path);
         setInvoice(data);
       } catch (err) {
         console.error(err);
@@ -20,7 +24,7 @@ export default function InvoicePrint() {
       }
     }
     load();
-  }, [id]);
+  }, [id, role]);
 
   if (loading) return <div className="p-8 text-center text-gray-500">Preparing invoice for print…</div>;
   if (!invoice) return <div className="p-8 text-center text-red-500">Invoice not found.</div>;

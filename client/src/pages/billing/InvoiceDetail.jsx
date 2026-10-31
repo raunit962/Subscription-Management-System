@@ -4,6 +4,7 @@ import Layout from '../../components/Layout';
 import StatusBadge from '../../components/StatusBadge';
 import { formatDate, formatMoney } from '../../utils/format';
 import api from '../../api';
+import { PaymentsPanel } from '../finance/Payments'; // Stage 3
 
 export default function InvoiceDetail() {
   const { id } = useParams();
@@ -263,6 +264,9 @@ export default function InvoiceDetail() {
           </div>
         </div>
       </div>
+
+      {/* Stage 3: payments */}
+      <PaymentsPanel invoice={invoice} onPaid={loadInvoice} />
     </Layout>
   );
 }

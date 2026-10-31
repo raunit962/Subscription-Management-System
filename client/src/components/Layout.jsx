@@ -14,6 +14,9 @@ const ADMIN_NAV = [
   { to: '/sales/discounts',     label: 'Discounts' },
   { to: '/billing/invoices',    label: 'Invoices' },
   { to: '/billing/run',         label: 'Run Billing' },
+  { to: '/finance/dashboard',   label: 'Dashboard' },
+  { to: '/finance/overdue',     label: 'Overdue' },
+  { to: '/finance/payments',    label: 'Payments' },
 ];
 
 const INTERNAL_NAV = [
@@ -25,10 +28,16 @@ const INTERNAL_NAV = [
   { to: '/sales/templates',     label: 'Templates' },
   { to: '/billing/invoices',    label: 'Invoices' },
   { to: '/billing/run',         label: 'Run Billing' },
+  { to: '/finance/dashboard',   label: 'Dashboard' },
+  { to: '/finance/overdue',     label: 'Overdue' },
+  { to: '/finance/payments',    label: 'Payments' },
 ];
 
 const PORTAL_NAV = [
   // Stage 3 will append portal items
+  { to: '/portal/subscriptions', label: 'My Subscriptions' },
+  { to: '/portal/invoices',      label: 'My Invoices' },
+  { to: '/portal/payments',      label: 'My Payments' },
 ];
 
 function navItems(role) {

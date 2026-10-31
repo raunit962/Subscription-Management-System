@@ -15,7 +15,9 @@ export async function apiFetch(path, options = {}) {
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  // Stage 2 pages pass '/api/...' while Stage 1 pages pass '/...' — accept both
+  const url = path.startsWith(`${API_BASE}/`) ? path : `${API_BASE}${path}`;
+  const res = await fetch(url, { ...options, headers });
 
   if (res.status === 204) return null;
 
