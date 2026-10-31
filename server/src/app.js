@@ -14,6 +14,11 @@ const plansRoutes        = require('./routes/plans.routes');
 const taxesRoutes        = require('./routes/taxes.routes');
 const paymentTermsRoutes = require('./routes/paymentTerms.routes');
 // Stage 2 will append its require() lines below this comment
+const templatesRoutes     = require('./routes/templates.routes');
+const subscriptionsRoutes = require('./routes/subscriptions.routes');
+const discountsRoutes     = require('./routes/discounts.routes');
+const invoicesRoutes      = require('./routes/invoices.routes');
+const billingRoutes       = require('./routes/billing.routes');
 
 const app = express();
 
@@ -33,6 +38,11 @@ app.use('/api/plans',         plansRoutes);
 app.use('/api/taxes',         taxesRoutes);
 app.use('/api/payment-terms', paymentTermsRoutes);
 // Stage 2/3 will append their app.use() lines below this comment
+app.use('/api/templates',     templatesRoutes);
+app.use('/api/subscriptions', subscriptionsRoutes);
+app.use('/api/discounts',     discountsRoutes);
+app.use('/api/invoices',      invoicesRoutes);
+app.use('/api/billing',       billingRoutes);
 
 // ── Error handler (must be last) ──────────────────────────────────────────────
 app.use(errorHandler);

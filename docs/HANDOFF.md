@@ -132,3 +132,78 @@ All Stage 1 test-gate checks are in:
 - Docker must be running before `npm run setup` (Postgres 16 on port 5432).
 - `setup-and-commit.bat` in the repo root handles full setup + git init + all commits.
 - `billedPeriod` on Invoice is nullable — Postgres NULLs don't conflict, so cancelling an invoice sets it to `null` and frees the period for re-billing. **Do not add a non-null default.**
+
+
+---
+
+## Stage 2 — Billing Core (Person B)
+
+---
+
+### Built
+
+#### Server — routes live at `/api/*`
+
+| Route file | Endpoints |
+|---|---|
+| `templates.routes.js` | `GET/POST /api/templates`, `GET/PUT/DELETE /api/templates/:id` (ADMIN/INTERNAL) |
+| `subscriptions.routes.js` | `GET/POST /api/subscriptions`, `GET /api/subscriptions/:id`, `POST /api/subscriptions/:id/transition`, `POST /api/subscriptions/:id/renew` |
+| `discounts.routes.js` | `GET /api/discounts` (ADMIN/INTERNAL), `POST/PUT/DELETE /api/discounts` (ADMIN) |
+| `invoices.routes.js` | `GET /api/invoices`, `GET /api/invoices/:id`, `POST /api/invoices/:id/confirm`, `POST /api/invoices/:id/cancel`, `POST /api/invoices/:id/send` |
+| `billing.routes.js` | `POST /api/billing/run` { date } (ADMIN/INTERNAL) |
+
+#### Server — lib
+
+| File | Exports |
+|---|---|
+| `lib/numbering.js` | `generateSubscriptionNumber(tx)`, `generateInvoiceNumber(tx)` — sequential `SUB-XXXX` and `INV-XXXX` inside transactions |
+| `lib/states.js` | `transition(entity, toStatus, plan)`, `transitionSubscription`, `transitionInvoice`, `SUBSCRIPTION_TRANSITIONS`, `INVOICE_TRANSITIONS` — throws `HttpError(409)` on invalid moves |
+| `lib/pricing.js` | `lineAmount(qty, unitPrice)`, `isDiscountApplicable(discount, subscription, date)`, `calculateDiscountAmount(discount, baseAmount)`, `applyTax(amount, percent)` |
+| `lib/billing.js` | `periodEnd(start, period)` (handles daily/weekly/monthly/yearly, month-end clamping, leap years), `generateInvoice(sub, periodStart, tx)`, `runBilling(targetDate)` |
+
+#### Client
+
+| Path | Route | What it is |
+|---|---|---|
+| `src/pages/sales/Templates.jsx` | `/sales/templates` | Create & list quotation templates with pre-configured products & plans |
+| `src/pages/sales/Subscriptions.jsx` | `/sales/subscriptions` | Subscription list with status filters, customer lookup, new sub modal (manual or template prefill) |
+| `src/pages/sales/SubscriptionDetail.jsx` | `/sales/subscriptions/:id` | Status stepper & valid action buttons, line items table, associated invoices |
+| `src/pages/sales/Discounts.jsx` | `/sales/discounts` | Tiered promo rules (Fixed/Percent, Product/Subscription scope, usage limits) |
+| `src/pages/billing/Invoices.jsx` | `/billing/invoices` | Invoices table with status filtering, balance due, links to detail & print |
+| `src/pages/billing/InvoiceDetail.jsx` | `/billing/invoices/:id` | Confirm/Cancel actions, Send email log, breakdown of lines and totals |
+| `src/pages/billing/InvoicePrint.jsx` | `/billing/invoices/:id/print` | Clean browser print view with `window.print()` trigger |
+| `src/pages/billing/RunBilling.jsx` | `/billing/run` | Date picker trigger for `runBilling`, result summary & generated invoice list |
+
+---
+
+### Contracts Stage 3 relies on (do not change)
+
+#### States & Invoices
+- `transition(invoice, 'PAID')` — Stage 3 payments route should transition invoice from `CONFIRMED` to `PAID` when `amountPaid = total`.
+- `transition(invoice, 'CANCELLED')` — Always ensures `billedPeriod = null`.
+- Invoice fields: `total`, `amountPaid`, `dueDate`, `status`. Outstanding is calculated as `total - amountPaid`. Overdue is `status === 'CONFIRMED' && amountPaid < total && dueDate < today`.
+
+#### Billing Engine
+- `generateInvoice(sub, periodStart, tx)` — Idempotent invoice generator with discount increment and double-billing protection.
+- `runBilling(date)` — Automated billing catch-up loop.
+
+---
+
+### Cut Items
+
+- None cut from Stage 2 core deliverables. Quotation templates UI and renew button are fully implemented.
+
+---
+
+### Test Results
+
+All Stage 1 + Stage 2 test-gate checks are green:
+- `tests/auth.test.js` (password rules, duplicate email 409, reset token)
+- `tests/roles.test.js` (role guards)
+- `tests/products.test.js` (Odoo variant price +560, decimal strings)
+- `tests/states.test.js` (invalid transitions -> 409, pause blocked when plan not pausable)
+- `tests/billing.test.js` (idempotency, catch-up 3 months, skip paused/closed, leap year period math)
+- `tests/discounts.test.js` (usage limit 1 with 2 subscriptions billed, expired discount)
+- `tests/totals.test.js` (subtotal, discount, tax, total match hand-calculated values to the cent)
+
+> **Pass count:** 7 test suites passed, 45 tests passed.

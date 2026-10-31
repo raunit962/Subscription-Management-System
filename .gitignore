@@ -4,4 +4,4 @@ dist
 coverage
 .prisma
 *.log
-
+.pgdata

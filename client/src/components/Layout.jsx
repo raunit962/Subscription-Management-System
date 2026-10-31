@@ -2,20 +2,29 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 
 const ADMIN_NAV = [
-  { to: '/admin/users',     label: 'Users' },
-  { to: '/admin/customers', label: 'Customers' },
-  { to: '/admin/products',  label: 'Products' },
-  { to: '/admin/plans',     label: 'Plans' },
-  { to: '/admin/taxes',     label: 'Taxes' },
+  { to: '/admin/users',         label: 'Users' },
+  { to: '/admin/customers',     label: 'Customers' },
+  { to: '/admin/products',      label: 'Products' },
+  { to: '/admin/plans',         label: 'Plans' },
+  { to: '/admin/taxes',         label: 'Taxes' },
   // /admin/payment-terms — CUT from UI (seed data is enough; Stage 2 may add if needed)
   // Stage 2/3 will append items below this comment
+  { to: '/sales/subscriptions', label: 'Subscriptions' },
+  { to: '/sales/templates',     label: 'Templates' },
+  { to: '/sales/discounts',     label: 'Discounts' },
+  { to: '/billing/invoices',    label: 'Invoices' },
+  { to: '/billing/run',         label: 'Run Billing' },
 ];
 
 const INTERNAL_NAV = [
-  { to: '/admin/customers', label: 'Customers' },
-  { to: '/admin/products',  label: 'Products' },
-  { to: '/admin/plans',     label: 'Plans' },
+  { to: '/admin/customers',     label: 'Customers' },
+  { to: '/admin/products',      label: 'Products' },
+  { to: '/admin/plans',         label: 'Plans' },
   // Stage 2/3 will append items below this comment
+  { to: '/sales/subscriptions', label: 'Subscriptions' },
+  { to: '/sales/templates',     label: 'Templates' },
+  { to: '/billing/invoices',    label: 'Invoices' },
+  { to: '/billing/run',         label: 'Run Billing' },
 ];
 
 const PORTAL_NAV = [
@@ -90,4 +99,3 @@ export default function Layout({ children }) {
     </div>
   );
 }
-

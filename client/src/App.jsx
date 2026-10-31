@@ -17,6 +17,15 @@ import Taxes     from './pages/admin/Taxes';
 // PaymentTerms page — CUT (seed data is enough; API routes exist for Stage 2)
 
 // S2/S3 imports will be appended below this comment
+// Stage 2 pages
+import Templates          from './pages/sales/Templates';
+import Subscriptions      from './pages/sales/Subscriptions';
+import SubscriptionDetail from './pages/sales/SubscriptionDetail';
+import Discounts          from './pages/sales/Discounts';
+import Invoices           from './pages/billing/Invoices';
+import InvoiceDetail      from './pages/billing/InvoiceDetail';
+import InvoicePrint       from './pages/billing/InvoicePrint';
+import RunBilling         from './pages/billing/RunBilling';
 
 export default function App() {
   return (
@@ -45,6 +54,23 @@ export default function App() {
           {/* /admin/payment-terms — CUT from UI; API at /api/payment-terms is live */}
 
           {/* S2/S3 routes will be appended below this comment */}
+          {/* Stage 2: Sales & Billing routes (ADMIN + INTERNAL) */}
+          <Route path="/sales/templates"
+            element={<ProtectedRoute roles={['ADMIN', 'INTERNAL']}><Templates /></ProtectedRoute>} />
+          <Route path="/sales/subscriptions"
+            element={<ProtectedRoute roles={['ADMIN', 'INTERNAL']}><Subscriptions /></ProtectedRoute>} />
+          <Route path="/sales/subscriptions/:id"
+            element={<ProtectedRoute roles={['ADMIN', 'INTERNAL']}><SubscriptionDetail /></ProtectedRoute>} />
+          <Route path="/sales/discounts"
+            element={<ProtectedRoute roles={['ADMIN', 'INTERNAL']}><Discounts /></ProtectedRoute>} />
+          <Route path="/billing/invoices"
+            element={<ProtectedRoute roles={['ADMIN', 'INTERNAL']}><Invoices /></ProtectedRoute>} />
+          <Route path="/billing/invoices/:id"
+            element={<ProtectedRoute roles={['ADMIN', 'INTERNAL']}><InvoiceDetail /></ProtectedRoute>} />
+          <Route path="/billing/invoices/:id/print"
+            element={<ProtectedRoute roles={['ADMIN', 'INTERNAL', 'PORTAL']}><InvoicePrint /></ProtectedRoute>} />
+          <Route path="/billing/run"
+            element={<ProtectedRoute roles={['ADMIN', 'INTERNAL']}><RunBilling /></ProtectedRoute>} />
 
           {/* Fallbacks */}
           <Route path="/unauthorized" element={
