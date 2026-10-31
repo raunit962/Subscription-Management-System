@@ -10,7 +10,7 @@ Decimal.set({ toExpPos: 9e15, toExpNeg: -9e15 });
  * add('1200.00', '560.00') → '1760.00'
  */
 function add(a, b) {
-  return new Decimal(a ?? 0).plus(new Decimal(b ?? 0)).toDecimalPlaces(2).toString();
+  return new Decimal(a ?? 0).plus(new Decimal(b ?? 0)).toFixed(2);
 }
 
 /**
@@ -18,7 +18,7 @@ function add(a, b) {
  * sub('1760.00', '560.00') → '1200.00'
  */
 function sub(a, b) {
-  return new Decimal(a ?? 0).minus(new Decimal(b ?? 0)).toDecimalPlaces(2).toString();
+  return new Decimal(a ?? 0).minus(new Decimal(b ?? 0)).toFixed(2);
 }
 
 /**
@@ -26,7 +26,7 @@ function sub(a, b) {
  * mul('5', '99.00') → '495.00'
  */
 function mul(a, b) {
-  return new Decimal(a ?? 0).times(new Decimal(b ?? 0)).toDecimalPlaces(2).toString();
+  return new Decimal(a ?? 0).times(new Decimal(b ?? 0)).toFixed(2);
 }
 
 /**
@@ -37,15 +37,14 @@ function pct(amount, percent) {
   return new Decimal(amount ?? 0)
     .times(new Decimal(percent ?? 0))
     .dividedBy(100)
-    .toDecimalPlaces(2)
-    .toString();
+    .toFixed(2);
 }
 
 /**
  * Round a value to 2 decimal places. Returns string.
  */
 function round2(val) {
-  return new Decimal(val ?? 0).toDecimalPlaces(2).toString();
+  return new Decimal(val ?? 0).toFixed(2);
 }
 
 /**

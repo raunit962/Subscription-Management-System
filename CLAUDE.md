@@ -4,7 +4,7 @@ Read this **and `plan.md`** before writing code. `plan.md` = what to build and w
 
 ## Current stage
 <!-- Stage owner updates this when starting -->
-**Active stage:** 1 — Foundation · Owner: `<name>` · Branch: `stage-1` · Window: 0:00–1:15
+**Active stage:** Stage 3 — Payments, Portal, Dashboard · Owner: Person C · Branch: stage-3 · Window: 2:35–3:45
 
 Build **only** the active stage's items from `plan.md`. Anything else → note in `docs/HANDOFF.md`, don't build.
 
