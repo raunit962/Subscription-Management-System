@@ -49,26 +49,9 @@ Unlike basic CRUD subscription apps, Brightloop implements strict enterprise fin
 
 ---
 
-## 🚀 Quick Start (Local Development)
+## 🚀 Quick Start
 
-### 1. Start the Database & Dev Servers (Windows 1-Click)
-Double-click `start-dev.bat` or run in terminal:
-```cmd
-.\start-dev.bat
-```
-*(This automatically starts PostgreSQL on port 5433, starts the backend on port 4001, and launches Vite on port 5173).*
-
-### 2. Manual Setup
-```bash
-# Start local postgres or Docker
-.\start-db.bat
-
-# Install dependencies, run Prisma migrations, and seed demo data
-npm run setup
-
-# Run dev servers
-npm run dev
-```
+Pick your OS: **[Windows](#setup--windows)** or **[macOS / Linux](#setup--macos--linux-docker)**. Both end with the app at http://localhost:5173.
 
 ---
 
@@ -79,8 +62,71 @@ npm run dev
 | **Admin** | `admin@brightloop.com` | `Admin@123!` |
 | **Internal / Staff** | `staff@brightloop.com` | `Staff@123!` |
 | **Portal / Customer** | `alice@example.com` | `Portal@123!` |
+| **Portal / Customer** | `bob@example.com` | `Portal@123!` |
 
 ---
+
+## Setup — Windows
+
+You need **Node.js 20+** and **Git**, plus a PostgreSQL server. Choose one:
+
+- **Option A — local PostgreSQL (no Docker).** Install [PostgreSQL 18](https://www.postgresql.org/download/windows/) to the default folder `C:\Program Files\PostgreSQL\18`. The `.bat` scripts run their own database on **port 5433** in the repo's `.pgdata` folder, so they don't clash with any Postgres you already have.
+- **Option B — Docker Desktop.** Same as macOS: Postgres in a container on **port 5432**.
+
+Run all commands in **PowerShell** from the repo folder.
+
+### Option A — local PostgreSQL (first time)
+
+```powershell
+# 1. Create .env and point it at port 5433
+Copy-Item .env.example .env
+notepad .env
+```
+
+In `.env`, change `5432` to `5433` on both database lines:
+
+```ini
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5433/brightloop
+DATABASE_URL_TEST=postgresql://postgres:postgres@127.0.0.1:5433/brightloop_test
+```
+
+```powershell
+# 2. Start the database (creates .pgdata, brightloop and brightloop_test on first run)
+.\start-db.bat
+
+# 3. Install, migrate dev + test databases, seed demo data
+npm run setup
+
+# 4. Check everything works (expect 68 passed)
+npm test
+```
+
+### Option A — every day
+
+```powershell
+.\start-dev.bat     # starts the database, then the server and the client in two new windows
+```
+
+Or step by step: `.\start-db.bat`, then `npm run dev`. When you're done: `.\stop-db.bat`.
+
+`.\setup-db.bat` re-runs migrations and the seed on the dev database only (use `npm run setup` when you also need the test database).
+
+### Option B — Docker Desktop
+
+```powershell
+docker compose up -d   # Postgres 16 on :5432 — .env.example already matches
+npm run setup
+npm test               # expect 68 passed
+npm run dev
+```
+
+### Windows notes
+
+- **Two `.env` files must match.** `npm run setup` copies the root `.env` to `server/.env` the first time (it never overwrites it afterwards). The tests and seed read the root file; Prisma and the server read `server/.env`. If you change one, change the other (or delete `server/.env` and run `npm run setup` again).
+- **Ports.** The server uses `PORT` from `.env` (4001 if unset); the client proxy reads the same value automatically.
+- **Different PostgreSQL version or folder?** Edit the `C:\Program Files\PostgreSQL\18\bin` path in `start-db.bat` and `stop-db.bat`.
+- **`npm run setup` can't connect.** Make sure `.\start-db.bat` printed *Database is up and running on port 5433* (Option A) or `docker compose ps` shows the db as healthy (Option B), and that `.env` uses the matching port.
+- **Mac/Linux-only syntax.** `VAR=value command` doesn't work in PowerShell; see the Windows commands under *Performance check* below.
 
 ---
 
@@ -107,13 +153,22 @@ npm test               # server tests against brightloop_test
 
 ## Performance check (5,000 subscriptions)
 
+macOS / Linux:
+
 ```bash
 SEED_SIZE=large npm run seed     # +500 customers, 5,000 subscriptions, 10,000 invoices, ~5,750 payments
 PERF=1 npm test -- perf          # subscriptions list, invoices list, dashboard, overdue — each must be < 2s
 ```
 
+Windows (PowerShell):
+
+```powershell
+$env:SEED_SIZE="large"; npm run seed; Remove-Item Env:SEED_SIZE
+$env:PERF="1"; npm test -- perf; Remove-Item Env:PERF
+```
+
 Measured on an M-series Mac: every endpoint 5–60 ms.
-Re-run `npx -w server prisma migrate reset --force` to go back to the small demo seed.
+To go back to the small demo seed, run `npx -w server prisma migrate reset --force` from the repo folder (same command on Windows and macOS).
 
 ## Scripts
 
