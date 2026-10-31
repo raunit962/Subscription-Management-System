@@ -285,6 +285,11 @@ Other earlier-stage files touched in this pass: `prisma/schema.prisma` (+`quoteV
 
 **Decision, not changed:** invoices are priced from the subscription's product lines (product price + variant extra); the plan's `price` is shown as the list price but not added to invoices. Changing that would alter every totals fixture — agree it as a team before touching it.
 
+### Merge with main/stage-2 (raunit962's fixes)
+- `stage-3` now includes `47b8e6a` (Stage 1–2 merged into `main`, login redirect fix, Windows `.bat` scripts, server default port 4001).
+- `client/vite.config.js` proxies to the `PORT` the server reads (`server/.env`, then root `.env`, else 4001), so the client and server can't disagree on the port.
+- `npm run setup`/`dev` copy `.env` → `server/.env` only if `server/.env` is missing; machine-specific `server/.env` files are left alone.
+
 ### Cut items
 - Charts on the dashboard (cut-first) — KPI cards + summary tables only.
 - Real email (reset link / invoice send are printed to the server console) — out of scope per plan.md.
