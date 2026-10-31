@@ -284,8 +284,11 @@ async function runBilling(targetDate = new Date()) {
 
     let currentNext = new Date(currentSub.nextInvoiceDate);
 
+    // Stage 3: never bill a period that starts on/after the subscription's expiry
+    const expiry = currentSub.expiryDate ? new Date(currentSub.expiryDate) : null;
+
     // Loop while nextInvoiceDate <= date (catches up missed periods)
-    while (currentNext <= date) {
+    while (currentNext <= date && (!expiry || currentNext < expiry)) {
       const periodStartToBill = new Date(currentNext);
       try {
         const invoice = await generateInvoice(currentSub, periodStartToBill);

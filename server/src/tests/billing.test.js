@@ -170,4 +170,25 @@ describe('billing: period math, catch-up and double-billing guard', () => {
       .set('Authorization', `Bearer ${adminToken}`);
     expect(cInvoices.body.total).toBe(0);
   });
+
+  test('billing: no invoice for a period starting on or after the expiry date', async () => {
+    const auth = { Authorization: `Bearer ${adminToken}` };
+    // Monthly from 1 Jan, expires 1 Apr → bill Jan, Feb, Mar only, even when running in June
+    const subRes = await request(app).post('/api/subscriptions').set(auth).send({
+      customerId: customer.customerId,
+      planId: monthlyPlan.id,
+      startDate: '2025-01-01T00:00:00Z',
+      expiryDate: '2025-04-01T00:00:00Z',
+      lines: [{ productId: product.id, qty: 1 }],
+    });
+    expect(subRes.status).toBe(201);
+    for (const to of ['QUOTATION', 'CONFIRMED', 'ACTIVE']) {
+      await request(app).post(`/api/subscriptions/${subRes.body.id}/transition`).set(auth).send({ to });
+    }
+    await request(app).post('/api/billing/run').set(auth).send({ date: '2025-06-15T00:00:00Z' });
+
+    const inv = await request(app).get(`/api/invoices?subscriptionId=${subRes.body.id}`).set(auth);
+    const starts = inv.body.data.map((i) => i.periodStart.slice(0, 10)).sort();
+    expect(starts).toEqual(['2025-01-01', '2025-02-01', '2025-03-01']);
+  });
 });

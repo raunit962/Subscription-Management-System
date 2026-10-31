@@ -6,6 +6,8 @@ const { requireAuth, requireRole } = require('../lib/auth');
 const { HttpError } = require('../lib/errors');
 const { parsePagination, paginatedResponse } = require('../lib/pagination');
 const { round2, sub } = require('../lib/money');
+const { transition } = require('../lib/states');
+const { periodEnd } = require('../lib/billing');
 
 const router = Router();
 router.use(requireAuth, requireRole('PORTAL'));
@@ -16,6 +18,9 @@ router.use((req, _res, next) => {
   req.customerId = req.user.customerId;
   next();
 });
+
+// What the portal needs to know about a plan to show the allowed actions
+const PLAN_FIELDS = { name: true, period: true, pausable: true, closable: true, renewable: true };
 
 // Draft invoices are internal work-in-progress; customers only see issued ones.
 const VISIBLE_INVOICE = { status: { not: 'DRAFT' } };
@@ -56,7 +61,7 @@ router.get('/subscriptions', async (req, res, next) => {
         where,
         skip,
         take: pageSize,
-        include: { plan: { select: { name: true, period: true } } },
+        include: { plan: { select: PLAN_FIELDS } },
         orderBy: { createdAt: 'desc' },
       }),
       prisma.subscription.count({ where }),
@@ -84,6 +89,59 @@ router.get('/subscriptions/:id', async (req, res, next) => {
       lines: sub.lines.map((l) => ({ ...l, unitPrice: round2(l.unitPrice), amount: round2(l.amount) })),
       invoices: sub.invoices.map(serializeInvoice),
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── POST /api/portal/subscriptions/:id/transition { to } ─────────────────────
+// Customers manage their own running subscriptions: pause / resume / close.
+// Activation and quotes stay with staff. Plan flags are enforced by lib/states.
+const CUSTOMER_MOVES = { ACTIVE: ['PAUSED', 'CLOSED'], PAUSED: ['ACTIVE', 'CLOSED'] };
+
+async function findOwnSubscription(req) {
+  const sub = await prisma.subscription.findFirst({
+    where: { id: parseId(req.params.id), customerId: req.customerId },
+    include: { plan: true },
+  });
+  if (!sub) throw new HttpError(404, 'Subscription not found.');
+  return sub;
+}
+
+router.post('/subscriptions/:id/transition', async (req, res, next) => {
+  try {
+    const to = String(req.body.to || '').toUpperCase();
+    const sub = await findOwnSubscription(req);
+    if (!(CUSTOMER_MOVES[sub.status] || []).includes(to)) {
+      throw new HttpError(409, `You can't move a ${sub.status} subscription to ${to || 'that status'}.`);
+    }
+    const status = transition(sub, to, sub.plan);
+    const updated = await prisma.subscription.update({
+      where: { id: sub.id },
+      data: { status },
+      include: { plan: { select: PLAN_FIELDS } },
+    });
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── POST /api/portal/subscriptions/:id/renew ─────────────────────────────────
+// Extends expiry by one period, only when the plan is renewable.
+router.post('/subscriptions/:id/renew', async (req, res, next) => {
+  try {
+    const sub = await findOwnSubscription(req);
+    if (!['ACTIVE', 'PAUSED'].includes(sub.status)) {
+      throw new HttpError(409, `A ${sub.status} subscription can't be renewed.`);
+    }
+    if (!sub.plan.renewable) throw new HttpError(409, 'Plan does not allow renewal.');
+    const updated = await prisma.subscription.update({
+      where: { id: sub.id },
+      data: { expiryDate: periodEnd(sub.expiryDate || sub.startDate, sub.plan.period) },
+      include: { plan: { select: PLAN_FIELDS } },
+    });
+    res.json(updated);
   } catch (err) {
     next(err);
   }

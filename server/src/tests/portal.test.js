@@ -53,4 +53,32 @@ describe('portal: customer isolation', () => {
     const res = await request(app).get('/api/portal/invoices').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(403);
   });
+
+  test('portal: customer pauses and resumes own subscription; other customer → 404', async () => {
+    const { prisma } = require('./helpers');
+    const post = (path, body) => request(app).post(path).set('Authorization', `Bearer ${tokenA}`).send(body);
+
+    expect((await post(`/api/portal/subscriptions/${subB.id}/transition`, { to: 'PAUSED' })).status).toBe(404);
+    expect((await prisma.subscription.findUnique({ where: { id: subB.id } })).status).toBe('ACTIVE');
+
+    const paused = await post(`/api/portal/subscriptions/${subA.id}/transition`, { to: 'PAUSED' });
+    expect(paused.status).toBe(200);
+    expect(paused.body.status).toBe('PAUSED');
+    const resumed = await post(`/api/portal/subscriptions/${subA.id}/transition`, { to: 'ACTIVE' });
+    expect(resumed.body.status).toBe('ACTIVE');
+  });
+
+  test('portal: plan rules still apply and customers cannot activate', async () => {
+    const { prisma } = require('./helpers');
+    const post = (path, body) => request(app).post(path).set('Authorization', `Bearer ${tokenA}`).send(body);
+    const strict = await createPlan({ name: 'Strict', pausable: false, closable: false, renewable: false });
+    const s1 = await createSubscription({ customerId: subA.customerId, planId: strict.id });
+    expect((await post(`/api/portal/subscriptions/${s1.id}/transition`, { to: 'PAUSED' })).status).toBe(409);
+    expect((await post(`/api/portal/subscriptions/${s1.id}/transition`, { to: 'CLOSED' })).status).toBe(409);
+    expect((await post(`/api/portal/subscriptions/${s1.id}/renew`)).status).toBe(409);
+
+    const confirmed = await createSubscription({ customerId: subA.customerId, planId: strict.id, status: 'CONFIRMED' });
+    expect((await post(`/api/portal/subscriptions/${confirmed.id}/transition`, { to: 'ACTIVE' })).status).toBe(409);
+    expect((await prisma.subscription.findUnique({ where: { id: confirmed.id } })).status).toBe('CONFIRMED');
+  });
 });

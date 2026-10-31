@@ -50,6 +50,15 @@ function transitionSubscription(sub, toStatus, plan = null) {
     }
   }
 
+  // Stage 3: a quotation can't be confirmed after its validity day has passed
+  if (currentStatus === 'QUOTATION' && toStatus === 'CONFIRMED' && sub.quoteValidUntil) {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    if (new Date(sub.quoteValidUntil) < today) {
+      throw new HttpError(409, 'Quotation has expired; create a new quotation');
+    }
+  }
+
   if (currentStatus === 'ACTIVE' && toStatus === 'CLOSED') {
     const isExpired = sub.expiryDate && new Date(sub.expiryDate) <= new Date();
     if (effectivePlan && effectivePlan.closable === false && !isExpired) {
