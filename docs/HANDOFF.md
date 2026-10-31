@@ -207,3 +207,96 @@ All Stage 1 + Stage 2 test-gate checks are green:
 - `tests/totals.test.js` (subtotal, discount, tax, total match hand-calculated values to the cent)
 
 > **Pass count:** 7 test suites passed, 45 tests passed.
+
+
+---
+
+## Stage 3 — Payments, Portal, Dashboard (Person C)
+
+---
+
+### Built
+
+#### Server — routes live at `/api/*`
+
+| Route file | Endpoints | Roles |
+|---|---|---|
+| `payments.routes.js` | `GET /api/payments?invoiceId=`, `POST /api/payments` { invoiceId, amount, method, date, note } | ADMIN/INTERNAL |
+| `portal.routes.js` | `GET /api/portal/subscriptions`, `/subscriptions/:id`, `/invoices`, `/invoices/:id`, `/payments` | PORTAL |
+| `reports.routes.js` | `GET /api/reports/dashboard?from=&to=&planId=&status=`, `GET /api/reports/overdue` | ADMIN/INTERNAL |
+
+#### Server — lib
+
+| File | Exports |
+|---|---|
+| `lib/reports.js` | `dashboard(filters, today)`, `startOfDay`, `outstandingWhere`, `overdueWhere`, `daysOverdue` — aggregate/groupBy/count only |
+
+#### Rules as implemented
+- **Payments**: amount > 0, ≤ 2 decimals, ≤ outstanding (400); invoice must be CONFIRMED (409 for DRAFT/PAID/CANCELLED). Runs in a transaction with `SELECT … FOR UPDATE` on the invoice row. When `amountPaid = total`, status goes to PAID via `transition(invoice, 'PAID')`.
+- **Outstanding** = CONFIRMED invoices (partial payments keep CONFIRMED). **Overdue** = outstanding and `dueDate < start of today (UTC)` — due today is not overdue.
+- **Portal**: every query filtered by `req.user.customerId` from the JWT; another customer's ID → 404. DRAFT invoices hidden from customers.
+- **Dashboard**: `from`/`to` filter payment date (revenue) and invoice date (invoice summary); `planId` filters everything; `status` = invoice status for the summary table. MRR = active subscription line amounts (pre-tax, pre-discount) normalised to a month (weekly ×52/12, yearly ÷12, daily ×365/12).
+
+#### Client
+
+| Path | Route | What it is |
+|---|---|---|
+| `components/KpiCard.jsx` | — | Dashboard stat tile |
+| `pages/finance/Dashboard.jsx` | `/finance/dashboard` | KPI cards + filters + invoices/subscriptions by status |
+| `pages/finance/Overdue.jsx` | `/finance/overdue` | Overdue invoices with days overdue |
+| `pages/finance/Payments.jsx` | `/finance/payments` | All payments; also exports `PaymentsPanel` used on invoice detail |
+| `pages/portal/MySubscriptions.jsx` | `/portal/subscriptions` | Customer's subscriptions (login lands here) |
+| `pages/portal/MyInvoices.jsx` | `/portal/invoices` | Customer's invoices + link to print view |
+| `pages/portal/MyPayments.jsx` | `/portal/payments` | Customer's payments |
+
+### Changes to earlier-stage files (all small, recorded here per §2.1)
+- `client/src/api.js` — **bug fix**: Stage 2 pages call `api.get('/api/…')` while `api.js` already prefixes `/api`, so every Stage 2 page requested `/api/api/…` and failed. `apiFetch` now accepts both forms.
+- `client/src/pages/billing/InvoicePrint.jsx` — PORTAL users load via `/api/portal/invoices/:id` (the staff endpoint is ADMIN/INTERNAL only, so the portal print view always failed).
+- `client/src/pages/billing/InvoiceDetail.jsx` — renders `<PaymentsPanel>` (record payment + history).
+- `package.json` / `server/package.json` — `npm run setup` now copies root `.env` → `server/.env` (Prisma CLI and `server/src/index.js` read from `server/`, so with only the root `.env` neither found `DATABASE_URL` on macOS/Linux) and migrates the test DB (`db:migrate:test`, creates `brightloop_test` if missing). `npm run dev` re-syncs `.env`.
+- `server/src/lib/billing.js` — subscription discount now applied before tax (see below).
+- `server/src/tests/totals.test.js` — added the subscription-discount test.
+- `server/src/tests/helpers.js` — added `createSubscription`, `createInvoice` fixtures.
+- `server/prisma/seed.js` — appended `SEED_SIZE=large` block (`seedLarge()`).
+- `app.js`, `App.jsx`, `Layout.jsx` — append-only mount/route/nav lines.
+
+### Fixed in Stage 3 — subscription discount was applied after tax (Stage 2 code)
+- `lib/billing.js` `generateInvoice` used to compute line tax on the pre-discount amount and subtract the subscription-level discount from the total afterwards, breaking "qty × unitPrice → discount → tax". Demo invoice came out 8800 − 880 + 1584 = 9504.00 instead of 9345.60.
+- Now: product discounts per line → subscription discount on the net total (after product discounts) → spread across lines pro rata (last line takes the rounding remainder) → tax per line on what's left. `InvoiceLine.discount` includes the line's share; `InvoiceLine.amount` is the taxable amount. Function signature unchanged.
+- Behaviour change: a subscription discount's base is now the subtotal *after* product discounts (was gross subtotal). Same result when no product discount applies.
+- Covered by new test `totals: subscription-level discount is applied before tax, to the cent` (10% → 9345.60; fixed 10.00 split over 18%/9% lines → 160.99).
+
+### Brief compliance pass (after checking against Subscription_Management_System.pdf)
+Gaps found against the brief and fixed in Stage 3:
+
+| Gap | Fix |
+|---|---|
+| UI-created subscriptions/templates had **no tax** and **no variant** → invoices showed $0 tax, Odoo +560 couldn't be sold | New shared `components/LineItemsEditor.jsx` (product, variant, qty, tax per line, multi-line) used by the subscription and template forms. Tax defaults to the first tax rule. |
+| Subscription form had no **expiry date**, **payment terms**, single line only; template qty couldn't be changed | Form now has expiry + payment terms; choosing a template pre-fills plan + lines, all editable (e.g. qty 5). |
+| **Billing continued past expiry** for non-auto-close plans | `runBilling` never bills a period starting on/after `expiryDate`. Test: `billing: no invoice for a period starting on or after the expiry date`. |
+| **Plan availability dates** not settable in UI, not enforced | Plans form has "available from/until"; `POST /api/subscriptions` rejects a start date outside the window (400). Test: `plan availability…`. |
+| **Quotation validity** stored but never applied | New nullable column `Subscription.quoteValidUntil` (migration `quote_valid_until`) = today + template `validityDays`; `lib/states.js` blocks QUOTATION→CONFIRMED after it (409). Shown on subscription detail. Test: `quotation: confirming after the template validity has passed → 409`. |
+| Portal was read-only; brief says customers **manage** their subscriptions | `POST /api/portal/subscriptions/:id/transition` (pause / resume / close — only from ACTIVE/PAUSED, plan flags enforced via `lib/states.js`) and `POST /api/portal/subscriptions/:id/renew`. Buttons on My Subscriptions. Tests in `portal.test.js`. |
+| Renew on a subscription **without an expiry** set expiry = start + 1 period (often in the past → billing would stop) | Renew now requires an expiry date (409 otherwise), staff and portal; button hidden when there's none. |
+| Payment Terms page was cut | Routed at `/admin/payment-terms` (ADMIN). |
+| Subscription detail didn't show expiry or tax | Shows expiry, quote validity and tax per line. |
+
+Other earlier-stage files touched in this pass: `prisma/schema.prisma` (+`quoteValidUntil`, recorded per §2.1 rule 4), `lib/states.js`, `lib/billing.js`, `routes/subscriptions.routes.js`, `components/FormModal.jsx` (+optional `wide` prop), `pages/sales/{Subscriptions,Templates,SubscriptionDetail}.jsx`, `pages/admin/Plans.jsx`, tests `billing`/`states`.
+
+**Decision, not changed:** invoices are priced from the subscription's product lines (product price + variant extra); the plan's `price` is shown as the list price but not added to invoices. Changing that would alter every totals fixture — agree it as a team before touching it.
+
+### Merge with main/stage-2 (raunit962's fixes)
+- `stage-3` now includes `47b8e6a` (Stage 1–2 merged into `main`, login redirect fix, Windows `.bat` scripts, server default port 4001).
+- `client/vite.config.js` proxies to the `PORT` the server reads (`server/.env`, then root `.env`, else 4001), so the client and server can't disagree on the port.
+- `npm run setup`/`dev` copy `.env` → `server/.env` only if `server/.env` is missing; machine-specific `server/.env` files are left alone.
+
+### Cut items
+- Charts on the dashboard (cut-first) — KPI cards + summary tables only.
+- Real email (reset link / invoice send are printed to the server console) — out of scope per plan.md.
+- Everything else in the Stage 3 list was built.
+
+### Test results
+- `npm test`: **10 suites, 68 tests passed** (45 from Stages 1–2 + 23 new), perf suite skipped by default.
+- New: `payments.test.js` (overpayment, partial → full → PAID, DRAFT/CANCELLED rejected, ≤ 0 rejected, PORTAL 403), `portal.test.js` (cross-customer invoice/subscription → 404, lists ignore query customerId, DRAFT hidden, staff 403), `reports.test.js` (due today not overdue / yesterday is, KPIs = hand-calculated fixture, plan/date/status filters, PORTAL 403).
+- `PERF=1 npm test -- perf` on `SEED_SIZE=large` (5,000 subs / 10,000 invoices): 7/7 under 2 s — slowest 61 ms (`/api/subscriptions?pageSize=100`), dashboard 24 ms.
+- Manual: billing run → confirm → partial + full payment → PAID; dashboard KPIs updated; Alice's portal shows only her data; Bob's invoice print → not found.

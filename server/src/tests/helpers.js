@@ -81,7 +81,42 @@ async function createProduct(overrides = {}) {
   });
 }
 
+/** Stage 3 fixtures: a subscription, and an invoice with exact totals (bypasses billing). */
+let fixtureSeq = 0;
+
+async function createSubscription({ customerId, planId, status = 'ACTIVE', lines = [] }) {
+  fixtureSeq += 1;
+  return prisma.subscription.create({
+    data: {
+      number: `SUB-T${Date.now()}-${fixtureSeq}`,
+      customerId, planId, status,
+      startDate: new Date('2026-01-01T00:00:00Z'),
+      lines: { create: lines },
+    },
+  });
+}
+
+async function createInvoice({
+  subscription, total, status = 'CONFIRMED', amountPaid = 0,
+  dueDate = new Date(Date.now() + 30 * 86400000), invoiceDate = new Date(),
+}) {
+  fixtureSeq += 1;
+  return prisma.invoice.create({
+    data: {
+      number: `INV-T${Date.now()}-${fixtureSeq}`,
+      subscriptionId: subscription.id,
+      customerId: subscription.customerId,
+      periodStart: invoiceDate, periodEnd: invoiceDate, billedPeriod: null,
+      invoiceDate, dueDate, status,
+      subtotal: total, total, amountPaid,
+    },
+  });
+}
+
 // Do NOT call prisma.$disconnect() here — the shared singleton must stay alive
 // for the full Jest run. --forceExit handles cleanup.
 
-module.exports = { prisma, resetDb, createUser, createPlan, createProduct };
+module.exports = {
+  prisma, resetDb, createUser, createPlan, createProduct,
+  createSubscription, createInvoice, // Stage 3
+};

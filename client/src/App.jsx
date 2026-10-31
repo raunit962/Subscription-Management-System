@@ -24,7 +24,14 @@ import Invoices           from './pages/billing/Invoices';
 import InvoiceDetail      from './pages/billing/InvoiceDetail';
 import InvoicePrint       from './pages/billing/InvoicePrint';
 import RunBilling         from './pages/billing/RunBilling';
+// Stage 3 pages
+import Payments           from './pages/finance/Payments';
+import Overdue            from './pages/finance/Overdue';
+import Dashboard          from './pages/finance/Dashboard';
 import MySubscriptions    from './pages/portal/MySubscriptions';
+import MyInvoices         from './pages/portal/MyInvoices';
+import MyPayments         from './pages/portal/MyPayments';
+import PaymentTerms       from './pages/admin/PaymentTerms';
 
 function RootRedirect() {
   const { user } = useAuth();
@@ -76,9 +83,23 @@ export default function App() {
           <Route path="/billing/run"
             element={<ProtectedRoute roles={['ADMIN', 'INTERNAL']}><RunBilling /></ProtectedRoute>} />
 
-          {/* Portal routes */}
+          {/* Stage 3: Finance (ADMIN + INTERNAL) */}
+          <Route path="/finance/dashboard"
+            element={<ProtectedRoute roles={['ADMIN', 'INTERNAL']}><Dashboard /></ProtectedRoute>} />
+          <Route path="/finance/overdue"
+            element={<ProtectedRoute roles={['ADMIN', 'INTERNAL']}><Overdue /></ProtectedRoute>} />
+          <Route path="/finance/payments"
+            element={<ProtectedRoute roles={['ADMIN', 'INTERNAL']}><Payments /></ProtectedRoute>} />
+          {/* Stage 3: Customer portal (PORTAL) */}
           <Route path="/portal/subscriptions"
-            element={<ProtectedRoute roles={['PORTAL', 'ADMIN', 'INTERNAL']}><MySubscriptions /></ProtectedRoute>} />
+            element={<ProtectedRoute roles={['PORTAL']}><MySubscriptions /></ProtectedRoute>} />
+          <Route path="/portal/invoices"
+            element={<ProtectedRoute roles={['PORTAL']}><MyInvoices /></ProtectedRoute>} />
+          <Route path="/portal/payments"
+            element={<ProtectedRoute roles={['PORTAL']}><MyPayments /></ProtectedRoute>} />
+          {/* Stage 3: Payment terms page (cut in Stage 1, API already existed) */}
+          <Route path="/admin/payment-terms"
+            element={<ProtectedRoute roles={['ADMIN']}><PaymentTerms /></ProtectedRoute>} />
 
           {/* Fallbacks */}
           <Route path="/unauthorized" element={

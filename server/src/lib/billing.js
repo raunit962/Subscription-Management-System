@@ -1,5 +1,6 @@
 'use strict';
 
+const Decimal = require('decimal.js');
 const prisma = require('./prisma');
 const {
   add: moneyAdd,
@@ -112,32 +113,55 @@ async function generateInvoice(subscription, periodStart, txClient = null) {
     const subscriptionDiscount = applicableDiscounts.find((d) => d.scope === 'SUBSCRIPTION');
 
     let subtotal = '0.00';
-    let lineDiscountTotal = '0.00';
+    let netBeforeSubDiscount = '0.00';
+    let discountTotal = '0.00';
     let taxTotal = '0.00';
     const invoiceLinesData = [];
     const usedDiscountIds = new Set();
 
-    // 3. Process lines
-    for (const line of fullSub.lines) {
+    // 3a. Line gross and product discounts
+    const priced = fullSub.lines.map((line) => {
       const lineGross = moneyMul(line.qty, line.unitPrice);
       subtotal = moneyAdd(subtotal, lineGross);
 
-      // Check product discount
-      let lineDiscount = '0.00';
+      let productDiscount = '0.00';
       const prodDisc = productDiscounts.find((d) => d.productId === line.productId);
       if (prodDisc) {
-        lineDiscount = calculateDiscountAmount(prodDisc, lineGross);
+        productDiscount = calculateDiscountAmount(prodDisc, lineGross);
         usedDiscountIds.add(prodDisc.id);
       }
-      lineDiscountTotal = moneyAdd(lineDiscountTotal, lineDiscount);
+      const lineNet = moneySub(lineGross, productDiscount);
+      netBeforeSubDiscount = moneyAdd(netBeforeSubDiscount, lineNet);
+      return { line, productDiscount, lineNet };
+    });
+
+    // 3b. Subscription-level discount on the net total, spread across lines
+    // pro rata (last line takes the rounding remainder) so tax is charged on
+    // the discounted amount: qty × unitPrice → discount → tax.
+    let subLevelDiscount = '0.00';
+    if (subscriptionDiscount && moneyLt('0.00', netBeforeSubDiscount)) {
+      subLevelDiscount = calculateDiscountAmount(subscriptionDiscount, netBeforeSubDiscount);
+      usedDiscountIds.add(subscriptionDiscount.id);
+    }
+    let unallocated = subLevelDiscount;
+
+    // 3c. Per-line totals and tax
+    priced.forEach(({ line, productDiscount, lineNet }, i) => {
+      const share = i === priced.length - 1
+        ? unallocated
+        : moneyRound2(new Decimal(subLevelDiscount).times(lineNet).dividedBy(netBeforeSubDiscount));
+      unallocated = moneySub(unallocated, share);
+
+      const lineDiscount = moneyAdd(productDiscount, share);
+      discountTotal = moneyAdd(discountTotal, lineDiscount);
 
       // Net amount before tax
-      const lineNet = moneySub(lineGross, lineDiscount);
+      const lineTaxable = moneySub(lineNet, share);
 
       // Tax
       let lineTax = '0.00';
       if (line.tax && line.tax.percent) {
-        lineTax = applyTax(lineNet, line.tax.percent);
+        lineTax = applyTax(lineTaxable, line.tax.percent);
       }
       taxTotal = moneyAdd(taxTotal, lineTax);
 
@@ -153,19 +177,11 @@ async function generateInvoice(subscription, periodStart, txClient = null) {
         unitPrice: moneyRound2(line.unitPrice),
         discount: lineDiscount,
         tax: lineTax,
-        amount: lineNet,
+        amount: lineTaxable,
       });
-    }
+    });
 
-    // 4. Subscription-level discount (if applicable)
-    let subLevelDiscount = '0.00';
-    if (subscriptionDiscount) {
-      subLevelDiscount = calculateDiscountAmount(subscriptionDiscount, subtotal);
-      usedDiscountIds.add(subscriptionDiscount.id);
-    }
-
-    const discountTotal = moneyAdd(lineDiscountTotal, subLevelDiscount);
-    // Total = subtotal - discountTotal + taxTotal
+    // 4. Total = subtotal - discountTotal + taxTotal
     const total = moneySub(moneyAdd(subtotal, taxTotal), discountTotal);
 
     // 5. Payment due date
@@ -268,8 +284,11 @@ async function runBilling(targetDate = new Date()) {
 
     let currentNext = new Date(currentSub.nextInvoiceDate);
 
+    // Stage 3: never bill a period that starts on/after the subscription's expiry
+    const expiry = currentSub.expiryDate ? new Date(currentSub.expiryDate) : null;
+
     // Loop while nextInvoiceDate <= date (catches up missed periods)
-    while (currentNext <= date) {
+    while (currentNext <= date && (!expiry || currentNext < expiry)) {
       const periodStartToBill = new Date(currentNext);
       try {
         const invoice = await generateInvoice(currentSub, periodStartToBill);

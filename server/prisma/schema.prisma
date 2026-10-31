@@ -182,6 +182,7 @@ model Subscription {
   paymentTerm     PaymentTerm?       @relation(fields: [paymentTermId], references: [id])
   status          SubscriptionStatus @default(DRAFT)
   nextInvoiceDate DateTime?
+  quoteValidUntil DateTime? // Stage 3: set from template validityDays; confirm blocked after it
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
   lines           SubscriptionLine[]

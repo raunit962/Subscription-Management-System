@@ -7,11 +7,15 @@ const ADMIN_NAV = [
   { to: '/sales/discounts',     label: 'Discounts' },
   { to: '/billing/invoices',    label: 'Invoices' },
   { to: '/billing/run',         label: 'Run Billing' },
+  { to: '/finance/dashboard',   label: 'Dashboard' },
+  { to: '/finance/overdue',     label: 'Overdue' },
+  { to: '/finance/payments',    label: 'Payments' },
   { to: '/admin/users',         label: 'Users' },
   { to: '/admin/customers',     label: 'Customers' },
   { to: '/admin/products',      label: 'Products' },
   { to: '/admin/plans',         label: 'Plans' },
   { to: '/admin/taxes',         label: 'Taxes' },
+  { to: '/admin/payment-terms', label: 'Payment Terms' },
 ];
 
 const INTERNAL_NAV = [
@@ -19,6 +23,9 @@ const INTERNAL_NAV = [
   { to: '/sales/templates',     label: 'Templates' },
   { to: '/billing/invoices',    label: 'Invoices' },
   { to: '/billing/run',         label: 'Run Billing' },
+  { to: '/finance/dashboard',   label: 'Dashboard' },
+  { to: '/finance/overdue',     label: 'Overdue' },
+  { to: '/finance/payments',    label: 'Payments' },
   { to: '/admin/customers',     label: 'Customers' },
   { to: '/admin/products',      label: 'Products' },
   { to: '/admin/plans',         label: 'Plans' },
@@ -26,6 +33,8 @@ const INTERNAL_NAV = [
 
 const PORTAL_NAV = [
   { to: '/portal/subscriptions', label: 'My Subscriptions' },
+  { to: '/portal/invoices',      label: 'My Invoices' },
+  { to: '/portal/payments',      label: 'My Payments' },
 ];
 
 function navItems(role) {

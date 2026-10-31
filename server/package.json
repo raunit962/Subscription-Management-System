@@ -8,7 +8,8 @@
     "test": "jest --forceExit --detectOpenHandles",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "db:migrate:test": "node -e \"require('dotenv').config();process.env.DATABASE_URL=process.env.DATABASE_URL_TEST;require('child_process').execSync('npx prisma migrate deploy',{stdio:'inherit'})\""
   },
   "dependencies": {
     "@prisma/client": "^6.1.0",
@@ -28,4 +29,3 @@
     "seed": "node prisma/seed.js"
   }
 }
-

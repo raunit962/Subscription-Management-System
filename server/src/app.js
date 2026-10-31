@@ -19,6 +19,10 @@ const subscriptionsRoutes = require('./routes/subscriptions.routes');
 const discountsRoutes     = require('./routes/discounts.routes');
 const invoicesRoutes      = require('./routes/invoices.routes');
 const billingRoutes       = require('./routes/billing.routes');
+// Stage 3
+const paymentsRoutes      = require('./routes/payments.routes');
+const portalRoutes        = require('./routes/portal.routes');
+const reportsRoutes       = require('./routes/reports.routes');
 
 const app = express();
 
@@ -43,6 +47,10 @@ app.use('/api/subscriptions', subscriptionsRoutes);
 app.use('/api/discounts',     discountsRoutes);
 app.use('/api/invoices',      invoicesRoutes);
 app.use('/api/billing',       billingRoutes);
+// Stage 3
+app.use('/api/payments',      paymentsRoutes);
+app.use('/api/portal',        portalRoutes);
+app.use('/api/reports',       reportsRoutes);
 
 // ── Error handler (must be last) ──────────────────────────────────────────────
 app.use(errorHandler);

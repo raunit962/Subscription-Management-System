@@ -4,7 +4,7 @@ Read this **and `plan.md`** before writing code. `plan.md` = what to build and w
 
 ## Current stage
 <!-- Stage owner updates this when starting -->
-**Active stage:** Stage 3 — Payments, Portal, Dashboard · Owner: Person C · Branch: stage-3 · Window: 2:35–3:45
+**Active stage:** Complete — v1.0 (Stage 3 merged after review by Person A: `npm run setup && npm test`, then tag `v1.0`)
 
 Build **only** the active stage's items from `plan.md`. Anything else → note in `docs/HANDOFF.md`, don't build.
 

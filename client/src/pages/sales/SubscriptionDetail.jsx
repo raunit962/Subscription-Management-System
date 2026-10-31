@@ -137,7 +137,7 @@ export default function SubscriptionDetail() {
                   Close Early
                 </button>
               )}
-              {plan?.renewable && (
+              {plan?.renewable && sub.expiryDate && (
                 <button
                   onClick={handleRenew}
                   disabled={actionLoading}
@@ -190,6 +190,13 @@ export default function SubscriptionDetail() {
           <p className="text-sm text-gray-900">
             Next Invoice: {sub.nextInvoiceDate ? formatDate(sub.nextInvoiceDate) : 'None scheduled'}
           </p>
+          <p className="text-sm text-gray-900">Expires: {sub.expiryDate ? formatDate(sub.expiryDate) : 'No expiry'}</p>
+          {sub.quoteValidUntil && ['DRAFT', 'QUOTATION'].includes(sub.status) && (
+            <p className={`text-xs mt-1 ${new Date(sub.quoteValidUntil) < new Date() ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
+              Quote valid until {formatDate(sub.quoteValidUntil)}
+              {new Date(sub.quoteValidUntil) < new Date() && ' — expired'}
+            </p>
+          )}
         </div>
 
         <div className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
@@ -212,6 +219,7 @@ export default function SubscriptionDetail() {
               <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Variant</th>
               <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500 uppercase">Qty</th>
               <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500 uppercase">Unit Price</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Tax</th>
               <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500 uppercase">Line Total</th>
             </tr>
           </thead>
@@ -224,6 +232,7 @@ export default function SubscriptionDetail() {
                 </td>
                 <td className="px-4 py-3 text-right">{line.qty}</td>
                 <td className="px-4 py-3 text-right">{formatMoney(line.unitPrice)}</td>
+                <td className="px-4 py-3 text-gray-500">{line.tax ? `${line.tax.name} (${parseFloat(line.tax.percent)}%)` : 'No tax'}</td>
                 <td className="px-4 py-3 text-right font-semibold">{formatMoney(line.amount)}</td>
               </tr>
             ))}

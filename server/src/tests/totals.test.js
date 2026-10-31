@@ -113,4 +113,53 @@ describe('totals: precision monetary calculations', () => {
     expect(inv.taxTotal).toBe('651.24');
     expect(inv.total).toBe('4719.24');
   });
+  test('totals: subscription-level discount is applied before tax, to the cent', async () => {
+    const auth = { Authorization: `Bearer ${adminToken}` };
+    const prodA = await prisma.product.create({ data: { name: 'Seat', salesPrice: 33.33 } });
+    const prodB = await prisma.product.create({ data: { name: 'Storage', salesPrice: 50.00 } });
+    const prodC = await prisma.product.create({ data: { name: 'CRM Odoo', salesPrice: 1760.00 } });
+    // Created first, so it wins when both apply (qty >= 5)
+    await prisma.discount.create({
+      data: { name: '10% min qty 5', type: 'PERCENT', value: 10.00, minQty: 5, scope: 'SUBSCRIPTION' },
+    });
+    await prisma.discount.create({
+      data: { name: '10 off', type: 'FIXED', value: 10.00, scope: 'SUBSCRIPTION' },
+    });
+
+    async function billedInvoice(lines) {
+      const subRes = await request(app).post('/api/subscriptions').set(auth).send({
+        customerId: customer.customerId, planId: plan.id, startDate: '2026-05-01T00:00:00Z', lines,
+      });
+      expect(subRes.status).toBe(201);
+      for (const to of ['QUOTATION', 'CONFIRMED', 'ACTIVE']) {
+        await request(app).post(`/api/subscriptions/${subRes.body.id}/transition`).set(auth).send({ to });
+      }
+      await request(app).post('/api/billing/run').set(auth).send({ date: '2026-05-10T00:00:00Z' });
+      const invRes = await request(app).get(`/api/invoices?subscriptionId=${subRes.body.id}`).set(auth);
+      return invRes.body.data[0];
+    }
+
+    // 10% on 5 x 1760.00 = 8800.00 -> 880.00 off -> tax 18% of 7920.00 = 1425.60 -> 9345.60
+    const pct = await billedInvoice([{ productId: prodC.id, qty: 5, taxId: tax18.id }]);
+    expect(pct.subtotal).toBe('8800.00');
+    expect(pct.discountTotal).toBe('880.00');
+    expect(pct.taxTotal).toBe('1425.60');
+    expect(pct.total).toBe('9345.60');
+
+    // Fixed 10.00 split pro rata over net 149.99:
+    //   Seat    3 x 33.33 = 99.99 -> share 6.67 -> 93.32 x 18% = 16.80
+    //   Storage 1 x 50.00 = 50.00 -> share 3.33 -> 46.67 x  9% =  4.20
+    // 149.99 - 10.00 + 21.00 = 160.99
+    const fixed = await billedInvoice([
+      { productId: prodA.id, qty: 3, taxId: tax18.id },
+      { productId: prodB.id, qty: 1, taxId: tax9.id },
+    ]);
+    expect(fixed.subtotal).toBe('149.99');
+    expect(fixed.discountTotal).toBe('10.00');
+    expect(fixed.taxTotal).toBe('21.00');
+    expect(fixed.total).toBe('160.99');
+    const byDesc = Object.fromEntries(fixed.lines.map((l) => [l.description, l]));
+    expect(byDesc.Seat).toMatchObject({ discount: '6.67', tax: '16.80', amount: '93.32' });
+    expect(byDesc.Storage).toMatchObject({ discount: '3.33', tax: '4.20', amount: '46.67' });
+  });
 });

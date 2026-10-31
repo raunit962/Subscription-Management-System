@@ -299,6 +299,9 @@ async function main() {
     },
   });
 
+  // ── Stage 3: SEED_SIZE=large → 5,000 subscriptions + invoices for perf checks ─
+  if (process.env.SEED_SIZE === 'large') await seedLarge();
+
   // ── Done ───────────────────────────────────────────────────────────────────
   console.log('✅  Seed complete.\n');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -311,6 +314,116 @@ async function main() {
   console.log('  PORTAL   | alice@example.com      | Portal@123!');
   console.log('  PORTAL   | bob@example.com        | Portal@123!');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+}
+
+// Stage 3 — bulk data via createMany. Numbers continue the SUB-/INV- sequence so
+// numbering.js keeps working afterwards. Skips if the large set is already there.
+async function seedLarge(subCount = 5000, customerCount = 500) {
+  const { mul } = require('../src/lib/money');
+  if ((await prisma.subscription.count()) >= subCount) {
+    console.log('ℹ️   Large seed already present — skipped.');
+    return;
+  }
+  console.log(`⏳  Large seed: ${customerCount} customers, ${subCount} subscriptions…`);
+
+  const lastSeq = async (model, prefix) => {
+    const last = await prisma[model].findFirst({ orderBy: { id: 'desc' }, select: { number: true } });
+    return parseInt(last?.number?.replace(prefix, ''), 10) || 0;
+  };
+  const pad = (n) => String(n).padStart(4, '0');
+  const DAY = 86400000;
+  const now = Date.now();
+  const plans = [
+    { id: 1, price: '150.00' },  // weekly
+    { id: 2, price: '1760.00' }, // monthly
+    { id: 3, price: '300.00' },  // yearly
+  ];
+  const statuses = ['ACTIVE', 'ACTIVE', 'ACTIVE', 'ACTIVE', 'PAUSED', 'CLOSED', 'CONFIRMED', 'DRAFT'];
+
+  const custStart = (await prisma.customer.count()) + 1;
+  await prisma.customer.createMany({
+    data: Array.from({ length: customerCount }, (_, i) => ({
+      name: `Bulk Customer ${custStart + i}`,
+      email: `bulk${custStart + i}@example.com`,
+    })),
+  });
+  const customerIds = (await prisma.customer.findMany({
+    where: { email: { startsWith: 'bulk' } }, select: { id: true },
+  })).map((c) => c.id);
+
+  const subSeq = await lastSeq('subscription', 'SUB-');
+  const subNumbers = [];
+  await prisma.subscription.createMany({
+    data: Array.from({ length: subCount }, (_, i) => {
+      const number = `SUB-${pad(subSeq + i + 1)}`;
+      subNumbers.push(number);
+      return {
+        number,
+        customerId: customerIds[i % customerIds.length],
+        planId: plans[i % plans.length].id,
+        status: statuses[i % statuses.length],
+        startDate: new Date(now - 90 * DAY),
+        nextInvoiceDate: new Date(now + ((i % 28) + 1) * DAY),
+        paymentTermId: 1,
+      };
+    }),
+  });
+  const subs = await prisma.subscription.findMany({
+    where: { number: { in: subNumbers } }, select: { id: true, customerId: true, planId: true },
+  });
+
+  await prisma.subscriptionLine.createMany({
+    data: subs.map((s, i) => {
+      const price = plans.find((p) => p.id === s.planId).price;
+      const qty = (i % 3) + 1;
+      return { subscriptionId: s.id, productId: 1, qty, unitPrice: price, amount: mul(price, qty) };
+    }),
+  });
+
+  // Two invoices per subscription: an older one (mostly paid) and a recent one (mix of states).
+  const invSeq = await lastSeq('invoice', 'INV-');
+  let n = invSeq;
+  const invoices = [];
+  subs.forEach((s, i) => {
+    const total = plans.find((p) => p.id === s.planId).price;
+    [60, 20].forEach((ageDays, k) => {
+      const periodStart = new Date(now - ageDays * DAY);
+      const status = k === 0
+        ? (i % 10 === 0 ? 'CONFIRMED' : 'PAID')            // ~10% of old invoices overdue
+        : ['CONFIRMED', 'PAID', 'DRAFT', 'CANCELLED'][i % 4];
+      n += 1;
+      invoices.push({
+        number: `INV-${pad(n)}`,
+        subscriptionId: s.id,
+        customerId: s.customerId,
+        periodStart,
+        periodEnd: new Date(periodStart.getTime() + 30 * DAY),
+        billedPeriod: status === 'CANCELLED' ? null : periodStart,
+        invoiceDate: periodStart,
+        dueDate: new Date(periodStart.getTime() + 15 * DAY),
+        status,
+        subtotal: total,
+        total,
+        amountPaid: status === 'PAID' ? total : '0.00',
+      });
+    });
+  });
+  for (let i = 0; i < invoices.length; i += 2000) {
+    await prisma.invoice.createMany({ data: invoices.slice(i, i + 2000) });
+  }
+
+  const paid = await prisma.invoice.findMany({
+    where: { status: 'PAID', subscriptionId: { in: subs.map((s) => s.id) } },
+    select: { id: true, total: true, dueDate: true },
+  });
+  for (let i = 0; i < paid.length; i += 2000) {
+    await prisma.payment.createMany({
+      data: paid.slice(i, i + 2000).map((inv) => ({
+        invoiceId: inv.id, amount: inv.total, method: 'bank_transfer', date: inv.dueDate,
+      })),
+    });
+  }
+  console.log(`✅  Large seed: ${subs.length} subscriptions, ${invoices.length} invoices, ${paid.length} payments.`);
 }
 
 main()

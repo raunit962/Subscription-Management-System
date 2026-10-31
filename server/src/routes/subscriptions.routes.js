@@ -99,6 +99,7 @@ router.post('/', requireRole('ADMIN', 'INTERNAL'), async (req, res, next) => {
     if (!customerId) throw new HttpError(400, 'customerId is required.');
 
     // If templateId provided, prefill plan and lines if not supplied
+    let quoteValidUntil = null;
     if (templateId) {
       const template = await prisma.quoteTemplate.findUnique({
         where: { id: parseInt(templateId, 10) },
@@ -106,6 +107,10 @@ router.post('/', requireRole('ADMIN', 'INTERNAL'), async (req, res, next) => {
       if (!template) throw new HttpError(404, 'Quotation template not found.');
       if (!planId) planId = template.planId;
       if (!lines || lines.length === 0) lines = template.lines;
+      // Stage 3: quotation validity = today + template.validityDays (end of that day, UTC)
+      quoteValidUntil = new Date();
+      quoteValidUntil.setUTCHours(23, 59, 59, 999);
+      quoteValidUntil.setUTCDate(quoteValidUntil.getUTCDate() + template.validityDays);
     }
 
     if (!planId) throw new HttpError(400, 'planId is required.');
@@ -122,6 +127,18 @@ router.post('/', requireRole('ADMIN', 'INTERNAL'), async (req, res, next) => {
     }
 
     const subStartDate = startDate ? new Date(startDate) : new Date();
+    if (isNaN(subStartDate.getTime())) throw new HttpError(400, 'startDate is invalid.');
+
+    // Stage 3: plan availability window and expiry sanity
+    if (plan.startDate && subStartDate < new Date(plan.startDate)) {
+      throw new HttpError(400, `Plan "${plan.name}" is only available from ${new Date(plan.startDate).toISOString().slice(0, 10)}.`);
+    }
+    if (plan.endDate && subStartDate > new Date(plan.endDate)) {
+      throw new HttpError(400, `Plan "${plan.name}" was only available until ${new Date(plan.endDate).toISOString().slice(0, 10)}.`);
+    }
+    if (expiryDate && !(new Date(expiryDate) > subStartDate)) {
+      throw new HttpError(400, 'expiryDate must be after startDate.');
+    }
 
     // Prepare line items
     const preparedLines = [];
@@ -173,6 +190,7 @@ router.post('/', requireRole('ADMIN', 'INTERNAL'), async (req, res, next) => {
           startDate: subStartDate,
           expiryDate: expiryDate ? new Date(expiryDate) : null,
           paymentTermId: paymentTermId ? parseInt(paymentTermId, 10) : null,
+          quoteValidUntil,
           status: 'DRAFT',
           lines: {
             create: preparedLines,
@@ -245,7 +263,10 @@ router.post('/:id/renew', requireRole('ADMIN', 'INTERNAL'), async (req, res, nex
       throw new HttpError(409, 'Plan does not allow renewal.');
     }
 
-    const baseDate = sub.expiryDate || sub.startDate;
+    // Stage 3: open-ended subscriptions have nothing to renew (start + period could
+    // land in the past, and billing stops at expiry)
+    if (!sub.expiryDate) throw new HttpError(409, 'Subscription has no expiry date to extend.');
+    const baseDate = sub.expiryDate;
     const newExpiry = periodEnd(baseDate, sub.plan.period);
 
     const updated = await prisma.subscription.update({
