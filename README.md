@@ -32,10 +32,10 @@ npm test               # server tests against brightloop_test
 
 1. **Sign up** a new customer at `/signup` — try `password` first to show the rule error.
 2. **Admin**: create a product with Brand = Odoo (+560), a monthly plan, and a 10% discount with min qty 5.
-3. **Internal**: Subscriptions → New → use the *Enterprise CRM Package* template, qty 5 → move it through to Active.
+3. **Internal**: Subscriptions → New → pick the *Enterprise CRM Package* template (pre-fills plan + lines: CRM Odoo ×5, Cloud Hosting) → choose a tax per line, optional expiry + payment terms → Save → Send Quote → Confirm → Activate.
 4. **Run Billing** for today → the invoice shows discount + tax. Run again → *0 generated*, no duplicate.
 5. Open the invoice → **Confirm** → **Record payment** for part of it (stays CONFIRMED), then the rest → **PAID**.
-6. Sign in as **alice@example.com** → My Subscriptions / My Invoices / My Payments; *View / print* opens the print view.
+6. Sign in as **alice@example.com** → My Subscriptions (pause / resume / renew / close where the plan allows) / My Invoices (*View / print*) / My Payments.
 7. **Dashboard** (`/finance/dashboard`): KPIs and the invoice summary change with the plan / date / status filters; **Overdue** lists past-due invoices with days overdue.
 
 ## Performance check (5,000 subscriptions)

@@ -17,6 +17,7 @@ const ADMIN_NAV = [
   { to: '/finance/dashboard',   label: 'Dashboard' },
   { to: '/finance/overdue',     label: 'Overdue' },
   { to: '/finance/payments',    label: 'Payments' },
+  { to: '/admin/payment-terms', label: 'Payment Terms' },
 ];
 
 const INTERNAL_NAV = [

@@ -81,4 +81,18 @@ describe('portal: customer isolation', () => {
     expect((await post(`/api/portal/subscriptions/${confirmed.id}/transition`, { to: 'ACTIVE' })).status).toBe(409);
     expect((await prisma.subscription.findUnique({ where: { id: confirmed.id } })).status).toBe('CONFIRMED');
   });
+
+  test('portal: renew extends expiry by one period; open-ended subscription → 409', async () => {
+    const { prisma } = require('./helpers');
+    const post = (path) => request(app).post(path).set('Authorization', `Bearer ${tokenA}`).send({});
+    const plan = await createPlan({ name: 'Renewable monthly', period: 'MONTHLY', renewable: true });
+    const open = await createSubscription({ customerId: subA.customerId, planId: plan.id });
+    expect((await post(`/api/portal/subscriptions/${open.id}/renew`)).status).toBe(409);
+
+    const dated = await createSubscription({ customerId: subA.customerId, planId: plan.id });
+    await prisma.subscription.update({ where: { id: dated.id }, data: { expiryDate: new Date('2027-03-31T00:00:00Z') } });
+    const res = await post(`/api/portal/subscriptions/${dated.id}/renew`);
+    expect(res.status).toBe(200);
+    expect(res.body.expiryDate.slice(0, 10)).toBe('2027-04-30');
+  });
 });

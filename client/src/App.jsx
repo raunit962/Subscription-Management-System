@@ -33,6 +33,7 @@ import Dashboard          from './pages/finance/Dashboard';
 import MySubscriptions    from './pages/portal/MySubscriptions';
 import MyInvoices         from './pages/portal/MyInvoices';
 import MyPayments         from './pages/portal/MyPayments';
+import PaymentTerms       from './pages/admin/PaymentTerms';
 
 export default function App() {
   return (
@@ -93,6 +94,9 @@ export default function App() {
             element={<ProtectedRoute roles={['PORTAL']}><MyInvoices /></ProtectedRoute>} />
           <Route path="/portal/payments"
             element={<ProtectedRoute roles={['PORTAL']}><MyPayments /></ProtectedRoute>} />
+          {/* Stage 3: Payment terms page (cut in Stage 1, API already existed) */}
+          <Route path="/admin/payment-terms"
+            element={<ProtectedRoute roles={['ADMIN']}><PaymentTerms /></ProtectedRoute>} />
 
           {/* Fallbacks */}
           <Route path="/unauthorized" element={

@@ -136,9 +136,10 @@ router.post('/subscriptions/:id/renew', async (req, res, next) => {
       throw new HttpError(409, `A ${sub.status} subscription can't be renewed.`);
     }
     if (!sub.plan.renewable) throw new HttpError(409, 'Plan does not allow renewal.');
+    if (!sub.expiryDate) throw new HttpError(409, 'Subscription has no expiry date to extend.');
     const updated = await prisma.subscription.update({
       where: { id: sub.id },
-      data: { expiryDate: periodEnd(sub.expiryDate || sub.startDate, sub.plan.period) },
+      data: { expiryDate: periodEnd(sub.expiryDate, sub.plan.period) },
       include: { plan: { select: PLAN_FIELDS } },
     });
     res.json(updated);

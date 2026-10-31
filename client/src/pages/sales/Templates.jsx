@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Layout from '../../components/Layout';
 import Table from '../../components/Table';
 import FormModal from '../../components/FormModal';
+import LineItemsEditor, { emptyLine, toApiLines } from '../../components/LineItemsEditor';
 import api from '../../api';
 
 export default function Templates() {
@@ -13,14 +14,15 @@ export default function Templates() {
   const [modalOpen, setModalOpen] = useState(false);
   const [plans, setPlans] = useState([]);
   const [products, setProducts] = useState([]);
+  const [taxes, setTaxes] = useState([]);
 
-  const [form, setForm] = useState({
+  const blankForm = () => ({
     name: '',
-    planId: '',
+    planId: plans[0]?.id ?? '',
     validityDays: '30',
-    productId: '',
-    qty: '1',
+    lines: [emptyLine(products, taxes)],
   });
+  const [form, setForm] = useState(blankForm);
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
 
@@ -42,14 +44,14 @@ export default function Templates() {
 
   async function loadMeta() {
     try {
-      const [plansRes, prodsRes] = await Promise.all([
+      const [plansRes, prodsRes, taxRes] = await Promise.all([
         api.get('/api/plans?pageSize=100'),
         api.get('/api/products?pageSize=100'),
+        api.get('/api/taxes?pageSize=100'),
       ]);
       setPlans(plansRes.data);
       setProducts(prodsRes.data);
-      if (plansRes.data[0]) setForm((f) => ({ ...f, planId: plansRes.data[0].id }));
-      if (prodsRes.data[0]) setForm((f) => ({ ...f, productId: prodsRes.data[0].id }));
+      setTaxes(taxRes.data);
     } catch (err) {
       console.error(err);
     }
@@ -71,15 +73,9 @@ export default function Templates() {
         name: form.name,
         planId: parseInt(form.planId, 10),
         validityDays: parseInt(form.validityDays, 10),
-        lines: [
-          {
-            productId: parseInt(form.productId, 10),
-            qty: parseInt(form.qty, 10),
-          },
-        ],
+        lines: toApiLines(form.lines),
       });
       setModalOpen(false);
-      setForm({ name: '', planId: plans[0]?.id || '', validityDays: '30', productId: products[0]?.id || '', qty: '1' });
       loadData();
     } catch (err) {
       setFormError(err.message);
@@ -115,7 +111,7 @@ export default function Templates() {
           <p className="text-sm text-gray-500">Reusable sales packages with pre-configured products and plans</p>
         </div>
         <button
-          onClick={() => setModalOpen(true)}
+          onClick={() => { setForm(blankForm()); setFormError(''); setModalOpen(true); }}
           className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition"
         >
           + New Template
@@ -140,6 +136,7 @@ export default function Templates() {
         onSubmit={handleCreate}
         loading={formLoading}
         error={formError}
+        wide
       >
         <div>
           <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Template Name</label>
@@ -177,29 +174,14 @@ export default function Templates() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Product</label>
-            <select
-              value={form.productId}
-              onChange={(e) => setForm({ ...form, productId: e.target.value })}
-              className="w-full px-3 py-2 border rounded-md text-sm"
-            >
-              {products.map((pr) => (
-                <option key={pr.id} value={pr.id}>{pr.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Quantity</label>
-            <input
-              type="number"
-              min="1"
-              value={form.qty}
-              onChange={(e) => setForm({ ...form, qty: e.target.value })}
-              className="w-full px-3 py-2 border rounded-md text-sm"
-            />
-          </div>
+        <div className="border-t pt-3">
+          <LineItemsEditor
+            lines={form.lines}
+            onChange={(lines) => setForm({ ...form, lines })}
+            products={products}
+            taxes={taxes}
+            minQty={plans.find((p) => p.id === parseInt(form.planId, 10))?.minQty ?? 1}
+          />
         </div>
       </FormModal>
     </Layout>

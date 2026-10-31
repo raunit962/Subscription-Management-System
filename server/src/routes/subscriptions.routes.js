@@ -263,7 +263,10 @@ router.post('/:id/renew', requireRole('ADMIN', 'INTERNAL'), async (req, res, nex
       throw new HttpError(409, 'Plan does not allow renewal.');
     }
 
-    const baseDate = sub.expiryDate || sub.startDate;
+    // Stage 3: open-ended subscriptions have nothing to renew (start + period could
+    // land in the past, and billing stops at expiry)
+    if (!sub.expiryDate) throw new HttpError(409, 'Subscription has no expiry date to extend.');
+    const baseDate = sub.expiryDate;
     const newExpiry = periodEnd(baseDate, sub.plan.period);
 
     const updated = await prisma.subscription.update({

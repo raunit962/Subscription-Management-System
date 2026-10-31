@@ -10,6 +10,7 @@
  *   loading?  — bool
  *   error?    — string
  *   submitLabel? — string (default "Save")
+ *   wide?     — bool, for forms with a line-item table (Stage 3)
  */
 export default function FormModal({
   open,
@@ -20,6 +21,7 @@ export default function FormModal({
   loading,
   error,
   submitLabel = 'Save',
+  wide = false,
 }) {
   if (!open) return null;
 
@@ -28,7 +30,7 @@ export default function FormModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+      <div className={`bg-white rounded-xl shadow-xl w-full ${wide ? 'max-w-3xl max-h-[90vh] overflow-y-auto' : 'max-w-md'}`}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h2 className="text-base font-semibold text-gray-800">{title}</h2>

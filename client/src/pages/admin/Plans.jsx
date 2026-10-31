@@ -3,13 +3,13 @@ import { api } from '../../api';
 import Layout from '../../components/Layout';
 import Table from '../../components/Table';
 import FormModal from '../../components/FormModal';
-import { formatMoney } from '../../utils/format';
+import { formatMoney, formatDate } from '../../utils/format';
 
 const INPUT = 'w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400';
 
 const PERIODS = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'];
 
-const EMPTY = { name: '', price: '', period: 'MONTHLY', minQty: '1', autoClose: false, closable: true, pausable: false, renewable: true };
+const EMPTY = { name: '', price: '', period: 'MONTHLY', minQty: '1', startDate: '', endDate: '', autoClose: false, closable: true, pausable: false, renewable: true };
 
 export default function Plans() {
   const [plans,   setPlans]   = useState([]);
@@ -52,8 +52,10 @@ export default function Plans() {
     { key: 'period', label: 'Period' },
     { key: 'price',  label: 'Price', render: (r) => formatMoney(r.price) },
     { key: 'minQty', label: 'Min Qty' },
+    { key: 'available', label: 'Available', render: (r) =>
+      (r.startDate || r.endDate) ? `${r.startDate ? formatDate(r.startDate) : '…'} – ${r.endDate ? formatDate(r.endDate) : '…'}` : 'Always' },
     { key: 'flags',  label: 'Flags', render: (r) =>
-      [r.pausable && 'Pausable', r.autoClose && 'AutoClose', !r.renewable && 'No-Renew']
+      [r.pausable && 'Pausable', r.closable && 'Closable', r.renewable && 'Renewable', r.autoClose && 'AutoClose']
         .filter(Boolean).join(', ') || '—' },
   ];
 
@@ -74,6 +76,10 @@ export default function Plans() {
             {PERIODS.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
         </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Available from (optional)"><input className={INPUT} type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></Field>
+          <Field label="Available until (optional)"><input className={INPUT} type="date" value={form.endDate} min={form.startDate || undefined} onChange={(e) => setForm({ ...form, endDate: e.target.value })} /></Field>
+        </div>
         <div className="grid grid-cols-2 gap-2">
           {[['autoClose','Auto-Close'],['closable','Closable'],['pausable','Pausable'],['renewable','Renewable']].map(([k,l]) => (
             <label key={k} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">

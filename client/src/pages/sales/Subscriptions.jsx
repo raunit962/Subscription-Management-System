@@ -4,7 +4,8 @@ import Layout from '../../components/Layout';
 import Table from '../../components/Table';
 import FormModal from '../../components/FormModal';
 import StatusBadge from '../../components/StatusBadge';
-import { formatDate } from '../../utils/format';
+import LineItemsEditor, { emptyLine, toApiLines } from '../../components/LineItemsEditor';
+import { formatDate, formatMoney } from '../../utils/format';
 import api from '../../api';
 
 export default function Subscriptions() {
@@ -20,15 +21,19 @@ export default function Subscriptions() {
   const [plans, setPlans] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [products, setProducts] = useState([]);
+  const [taxes, setTaxes] = useState([]);
+  const [paymentTerms, setPaymentTerms] = useState([]);
 
-  const [form, setForm] = useState({
-    customerId: '',
-    planId: '',
+  const blankForm = () => ({
+    customerId: customers[0]?.id ?? '',
+    planId: plans[0]?.id ?? '',
     templateId: '',
     startDate: new Date().toISOString().split('T')[0],
-    productId: '',
-    qty: '1',
+    expiryDate: '',
+    paymentTermId: paymentTerms[0]?.id ?? '',
+    lines: [emptyLine(products, taxes)],
   });
+  const [form, setForm] = useState(blankForm);
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
 
@@ -51,19 +56,20 @@ export default function Subscriptions() {
 
   async function loadMeta() {
     try {
-      const [custs, plns, tmpls, prods] = await Promise.all([
+      const [custs, plns, tmpls, prods, txs, terms] = await Promise.all([
         api.get('/api/customers?pageSize=100'),
         api.get('/api/plans?pageSize=100'),
         api.get('/api/templates?pageSize=100'),
         api.get('/api/products?pageSize=100'),
+        api.get('/api/taxes?pageSize=100'),
+        api.get('/api/payment-terms?pageSize=100'),
       ]);
       setCustomers(custs.data);
       setPlans(plns.data);
       setTemplates(tmpls.data);
       setProducts(prods.data);
-      if (custs.data[0]) setForm((f) => ({ ...f, customerId: custs.data[0].id }));
-      if (plns.data[0]) setForm((f) => ({ ...f, planId: plns.data[0].id }));
-      if (prods.data[0]) setForm((f) => ({ ...f, productId: prods.data[0].id }));
+      setTaxes(txs.data);
+      setPaymentTerms(terms.data);
     } catch (err) {
       console.error(err);
     }
@@ -84,13 +90,28 @@ export default function Subscriptions() {
     }
     const tmpl = templates.find((t) => t.id === parseInt(tmplId, 10));
     if (tmpl) {
+      // Prefill plan + lines; everything stays editable (e.g. bump qty to 5)
       setForm((f) => ({
         ...f,
         templateId: tmpl.id,
         planId: tmpl.planId,
+        lines: (tmpl.lines || []).map((l) => ({
+          productId: l.productId,
+          attributeValueId: l.attributeValueId ?? '',
+          qty: String(l.qty ?? 1),
+          taxId: l.taxId ?? taxes[0]?.id ?? '',
+        })),
       }));
     }
   }
+
+  function openCreate() {
+    setForm(blankForm());
+    setFormError('');
+    setModalOpen(true);
+  }
+
+  const selectedPlan = plans.find((p) => p.id === parseInt(form.planId, 10));
 
   async function handleCreate() {
     setFormLoading(true);
@@ -100,18 +121,12 @@ export default function Subscriptions() {
         customerId: parseInt(form.customerId, 10),
         planId: parseInt(form.planId, 10),
         startDate: form.startDate,
+        lines: toApiLines(form.lines),
       };
-
-      if (form.templateId) {
-        payload.templateId = parseInt(form.templateId, 10);
-      } else {
-        payload.lines = [
-          {
-            productId: parseInt(form.productId, 10),
-            qty: parseInt(form.qty, 10),
-          },
-        ];
-      }
+      if (form.expiryDate) payload.expiryDate = form.expiryDate;
+      if (form.paymentTermId) payload.paymentTermId = parseInt(form.paymentTermId, 10);
+      // templateId also starts the quotation validity clock on the server
+      if (form.templateId) payload.templateId = parseInt(form.templateId, 10);
 
       await api.post('/api/subscriptions', payload);
       setModalOpen(false);
@@ -171,7 +186,7 @@ export default function Subscriptions() {
           <p className="text-sm text-gray-500">Manage recurring contracts, statuses, and billing schedules</p>
         </div>
         <button
-          onClick={() => setModalOpen(true)}
+          onClick={openCreate}
           className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition"
         >
           + New Subscription
@@ -213,6 +228,7 @@ export default function Subscriptions() {
         onSubmit={handleCreate}
         loading={formLoading}
         error={formError}
+        wide
       >
         <div>
           <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Customer</label>
@@ -250,7 +266,7 @@ export default function Subscriptions() {
               className="w-full px-3 py-2 border rounded-md text-sm"
             >
               {plans.map((p) => (
-                <option key={p.id} value={p.id}>{p.name} ({p.period})</option>
+                <option key={p.id} value={p.id}>{p.name} ({p.period}, {formatMoney(p.price)})</option>
               ))}
             </select>
           </div>
@@ -265,32 +281,47 @@ export default function Subscriptions() {
           </div>
         </div>
 
-        {!form.templateId && (
-          <div className="grid grid-cols-2 gap-3 border-t pt-3">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Product</label>
-              <select
-                value={form.productId}
-                onChange={(e) => setForm({ ...form, productId: e.target.value })}
-                className="w-full px-3 py-2 border rounded-md text-sm"
-              >
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Quantity</label>
-              <input
-                type="number"
-                min="1"
-                value={form.qty}
-                onChange={(e) => setForm({ ...form, qty: e.target.value })}
-                className="w-full px-3 py-2 border rounded-md text-sm"
-              />
-            </div>
-          </div>
+        {selectedPlan && (selectedPlan.startDate || selectedPlan.endDate) && (
+          <p className="text-xs text-gray-500 -mt-2">
+            Plan available {selectedPlan.startDate ? `from ${formatDate(selectedPlan.startDate)}` : ''}
+            {selectedPlan.endDate ? ` until ${formatDate(selectedPlan.endDate)}` : ''}
+          </p>
         )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Expiry Date (Optional)</label>
+            <input
+              type="date"
+              value={form.expiryDate}
+              min={form.startDate}
+              onChange={(e) => setForm({ ...form, expiryDate: e.target.value })}
+              className="w-full px-3 py-2 border rounded-md text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Payment Terms</label>
+            <select
+              value={form.paymentTermId}
+              onChange={(e) => setForm({ ...form, paymentTermId: e.target.value })}
+              className="w-full px-3 py-2 border rounded-md text-sm"
+            >
+              {paymentTerms.map((t) => (
+                <option key={t.id} value={t.id}>{t.name} ({t.dueDays} days)</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="border-t pt-3">
+          <LineItemsEditor
+            lines={form.lines}
+            onChange={(lines) => setForm({ ...form, lines })}
+            products={products}
+            taxes={taxes}
+            minQty={selectedPlan?.minQty ?? 1}
+          />
+        </div>
       </FormModal>
     </Layout>
   );

@@ -266,12 +266,32 @@ All Stage 1 + Stage 2 test-gate checks are green:
 - Behaviour change: a subscription discount's base is now the subtotal *after* product discounts (was gross subtotal). Same result when no product discount applies.
 - Covered by new test `totals: subscription-level discount is applied before tax, to the cent` (10% → 9345.60; fixed 10.00 split over 18%/9% lines → 160.99).
 
+### Brief compliance pass (after checking against Subscription_Management_System.pdf)
+Gaps found against the brief and fixed in Stage 3:
+
+| Gap | Fix |
+|---|---|
+| UI-created subscriptions/templates had **no tax** and **no variant** → invoices showed $0 tax, Odoo +560 couldn't be sold | New shared `components/LineItemsEditor.jsx` (product, variant, qty, tax per line, multi-line) used by the subscription and template forms. Tax defaults to the first tax rule. |
+| Subscription form had no **expiry date**, **payment terms**, single line only; template qty couldn't be changed | Form now has expiry + payment terms; choosing a template pre-fills plan + lines, all editable (e.g. qty 5). |
+| **Billing continued past expiry** for non-auto-close plans | `runBilling` never bills a period starting on/after `expiryDate`. Test: `billing: no invoice for a period starting on or after the expiry date`. |
+| **Plan availability dates** not settable in UI, not enforced | Plans form has "available from/until"; `POST /api/subscriptions` rejects a start date outside the window (400). Test: `plan availability…`. |
+| **Quotation validity** stored but never applied | New nullable column `Subscription.quoteValidUntil` (migration `quote_valid_until`) = today + template `validityDays`; `lib/states.js` blocks QUOTATION→CONFIRMED after it (409). Shown on subscription detail. Test: `quotation: confirming after the template validity has passed → 409`. |
+| Portal was read-only; brief says customers **manage** their subscriptions | `POST /api/portal/subscriptions/:id/transition` (pause / resume / close — only from ACTIVE/PAUSED, plan flags enforced via `lib/states.js`) and `POST /api/portal/subscriptions/:id/renew`. Buttons on My Subscriptions. Tests in `portal.test.js`. |
+| Renew on a subscription **without an expiry** set expiry = start + 1 period (often in the past → billing would stop) | Renew now requires an expiry date (409 otherwise), staff and portal; button hidden when there's none. |
+| Payment Terms page was cut | Routed at `/admin/payment-terms` (ADMIN). |
+| Subscription detail didn't show expiry or tax | Shows expiry, quote validity and tax per line. |
+
+Other earlier-stage files touched in this pass: `prisma/schema.prisma` (+`quoteValidUntil`, recorded per §2.1 rule 4), `lib/states.js`, `lib/billing.js`, `routes/subscriptions.routes.js`, `components/FormModal.jsx` (+optional `wide` prop), `pages/sales/{Subscriptions,Templates,SubscriptionDetail}.jsx`, `pages/admin/Plans.jsx`, tests `billing`/`states`.
+
+**Decision, not changed:** invoices are priced from the subscription's product lines (product price + variant extra); the plan's `price` is shown as the list price but not added to invoices. Changing that would alter every totals fixture — agree it as a team before touching it.
+
 ### Cut items
 - Charts on the dashboard (cut-first) — KPI cards + summary tables only.
+- Real email (reset link / invoice send are printed to the server console) — out of scope per plan.md.
 - Everything else in the Stage 3 list was built.
 
 ### Test results
-- `npm test`: **10 suites, 61 tests passed** (45 from Stages 1–2 + 16 new), perf suite skipped by default.
+- `npm test`: **10 suites, 68 tests passed** (45 from Stages 1–2 + 23 new), perf suite skipped by default.
 - New: `payments.test.js` (overpayment, partial → full → PAID, DRAFT/CANCELLED rejected, ≤ 0 rejected, PORTAL 403), `portal.test.js` (cross-customer invoice/subscription → 404, lists ignore query customerId, DRAFT hidden, staff 403), `reports.test.js` (due today not overdue / yesterday is, KPIs = hand-calculated fixture, plan/date/status filters, PORTAL 403).
 - `PERF=1 npm test -- perf` on `SEED_SIZE=large` (5,000 subs / 10,000 invoices): 7/7 under 2 s — slowest 61 ms (`/api/subscriptions?pageSize=100`), dashboard 24 ms.
 - Manual: billing run → confirm → partial + full payment → PAID; dashboard KPIs updated; Alice's portal shows only her data; Bob's invoice print → not found.
