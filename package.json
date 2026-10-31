@@ -6,8 +6,9 @@
     "client"
   ],
   "scripts": {
-    "setup": "npm install && npm run db:generate -w server && npm run db:migrate -w server && npm run db:seed -w server",
-    "dev": "npx concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
+    "env:sync": "node -e \"const f=require('fs');if(!f.existsSync('.env'))f.copyFileSync('.env.example','.env');f.copyFileSync('.env','server/.env')\"",
+    "setup": "npm run env:sync && npm install && npm run db:generate -w server && npm run db:migrate -w server && npm run db:migrate:test -w server && npm run db:seed -w server",
+    "dev": "npm run env:sync && npx concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
     "test": "npm test -w server",
     "seed": "npm run db:seed -w server"
   },
@@ -15,4 +16,3 @@
     "concurrently": "^9.1.0"
   }
 }
-
