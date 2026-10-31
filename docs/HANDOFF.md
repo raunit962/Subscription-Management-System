@@ -130,7 +130,7 @@ All Stage 1 test-gate checks are in:
 
 - Node.js must be v20+. Install with `winget install OpenJS.NodeJS.LTS` if missing.
 - Docker must be running before `npm run setup` (Postgres 16 on port 5432).
-- `setup-and-commit.bat` in the repo root handles full setup + git init + all commits.
+- (Removed) `setup-and-commit.bat` — the Stage 1 one-shot setup script; use `npm run setup` or `setup-db.bat`.
 - `billedPeriod` on Invoice is nullable — Postgres NULLs don't conflict, so cancelling an invoice sets it to `null` and frees the period for re-billing. **Do not add a non-null default.**
 
 
