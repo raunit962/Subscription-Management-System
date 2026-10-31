@@ -2,7 +2,7 @@
 echo ========================================================
 echo Starting Brightloop (Database + Server + Client)...
 echo ========================================================
-call start-db.bat
+call "%~dp0start-db.bat"
 echo.
 echo Starting backend server on http://localhost:4001 and frontend on http://localhost:5173...
 start "Brightloop Server (Port 4001)" cmd /k "npm.cmd run dev -w server"
