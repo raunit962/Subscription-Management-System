@@ -1,0 +1,64 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './auth/AuthContext';
+import ProtectedRoute from './auth/ProtectedRoute';
+
+// Auth pages
+import Login          from './pages/auth/Login';
+import Signup         from './pages/auth/Signup';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword  from './pages/auth/ResetPassword';
+
+// Admin pages
+import Users     from './pages/admin/Users';
+import Customers from './pages/admin/Customers';
+import Products  from './pages/admin/Products';
+import Plans     from './pages/admin/Plans';
+import Taxes     from './pages/admin/Taxes';
+// PaymentTerms page — CUT (seed data is enough; API routes exist for Stage 2)
+
+// S2/S3 imports will be appended below this comment
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/login"           element={<Login />} />
+          <Route path="/signup"          element={<Signup />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password"  element={<ResetPassword />} />
+
+          {/* Admin-only routes */}
+          <Route path="/admin/users"
+            element={<ProtectedRoute roles={['ADMIN']}><Users /></ProtectedRoute>} />
+
+          {/* Admin + Internal routes */}
+          <Route path="/admin/customers"
+            element={<ProtectedRoute roles={['ADMIN', 'INTERNAL']}><Customers /></ProtectedRoute>} />
+          <Route path="/admin/products"
+            element={<ProtectedRoute roles={['ADMIN', 'INTERNAL']}><Products /></ProtectedRoute>} />
+          <Route path="/admin/plans"
+            element={<ProtectedRoute roles={['ADMIN', 'INTERNAL']}><Plans /></ProtectedRoute>} />
+          <Route path="/admin/taxes"
+            element={<ProtectedRoute roles={['ADMIN', 'INTERNAL']}><Taxes /></ProtectedRoute>} />
+          {/* /admin/payment-terms — CUT from UI; API at /api/payment-terms is live */}
+
+          {/* S2/S3 routes will be appended below this comment */}
+
+          {/* Fallbacks */}
+          <Route path="/unauthorized" element={
+            <div className="flex h-screen items-center justify-center text-gray-500">
+              <div className="text-center">
+                <p className="text-4xl font-bold text-red-400">403</p>
+                <p className="mt-2">You don't have permission to view this page.</p>
+              </div>
+            </div>
+          } />
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}
